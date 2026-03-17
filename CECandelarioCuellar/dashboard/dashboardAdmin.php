@@ -7,7 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     
     
-    <link rel="stylesheet" href="../css/disenosDashboard.css">
+    <link rel="stylesheet" href="../css/general.css">
 </head>
 <body>
 
@@ -16,7 +16,7 @@
         <span class="navbar-brand mb-0 h1 fw-bold">
             Centro Escolar Candelario Cuellar
         </span>
-        <a href="index.html" class="btn btn-outline-light btn-sm">Salir</a>
+        <a href="../auth/login.php" class="btn btn-outline-light btn-sm">Salir</a>
     </div>
 </nav>
 
@@ -32,7 +32,7 @@
         <div class="col-md-4">
             <div class="card card-menu shadow-sm p-4 text-center">
                 <div class="icon-circle">📅</div>
-                <h4>Generar Horarios</h4>
+                <h4>Horarios</h4>
                 <p class="text-secondary small">Gestion de horarios de clases.</p>
                 <a href="#" class="btn btn-principal w-100 mt-3">Gestionar</a>
             </div>
@@ -43,7 +43,7 @@
                 <div class="icon-circle">✍️</div>
                 <h4>Matricular Alumnos</h4>
                 <p class="text-secondary small">Proceso de inscripción.</p>
-                <a href="#" class="btn btn-principal w-100 mt-3">Matricular</a>
+                <a href="../Alumnos/inscribirAlumno.php" class="btn btn-principal w-100 mt-3">Matricular</a>
             </div>
         </div>
 
@@ -52,7 +52,7 @@
                 <div class="icon-circle">📊</div>
                 <h4>Ver Listados</h4>
                 <p class="text-secondary small">Visualización de asistencia y notas.</p>
-                <a href="#" class="btn btn-principal w-100 mt-3">Ver Reportes</a>
+                <a href="../Alumnos/verAlumnos.php" class="btn btn-principal w-100 mt-3">Ver Reportes</a>
             </div>
         </div>
     </div>
