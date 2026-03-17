@@ -1,0 +1,6 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane # Nodo Maestro
+- role: worker        # Nodo 1 para tus réplicas
+- role: worker        # Nodo 2 para tus réplicas
