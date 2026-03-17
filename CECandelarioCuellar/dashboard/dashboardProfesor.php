@@ -32,27 +32,27 @@
         <div class="col-md-4">
             <div class="card card-menu shadow-sm p-4 text-center">
                 <div class="icon-circle">📅</div>
-                <h4>Generar Horarios</h4>
-                <p class="text-secondary small">Gestion de horarios de clases.</p>
-                <a href="#" class="btn btn-principal w-100 mt-3">Gestionar</a>
+                <h4>Ver Horarios</h4>
+                <p class="text-secondary small">Ver horarios de clases.</p>
+                <a href="#" class="btn btn-principal w-100 mt-3">Ver</a>
             </div>
         </div>
 
         <div class="col-md-4">
             <div class="card card-menu shadow-sm p-4 text-center">
                 <div class="icon-circle">✍️</div>
-                <h4>Matricular Alumnos</h4>
-                <p class="text-secondary small">Proceso de inscripción.</p>
-                <a href="#" class="btn btn-principal w-100 mt-3">Matricular</a>
+                <h4>Asignar Notas</h4>
+                <p class="text-secondary small">Proceso Para Calificar.</p>
+                <a href="#" class="btn btn-principal w-100 mt-3">Calificar</a>
             </div>
         </div>
 
         <div class="col-md-4">
             <div class="card card-menu shadow-sm p-4 text-center">
                 <div class="icon-circle">📊</div>
-                <h4>Ver Listados</h4>
-                <p class="text-secondary small">Visualización de asistencia y notas.</p>
-                <a href="#" class="btn btn-principal w-100 mt-3">Ver Reportes</a>
+                <h4>Asignar Asistencia</h4>
+                <p class="text-secondary small">Asignación de asistencia</p>
+                <a href="#" class="btn btn-principal w-100 mt-3">Asistencias</a>
             </div>
         </div>
     </div>
