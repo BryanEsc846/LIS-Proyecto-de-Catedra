@@ -4,7 +4,7 @@
 try {
     // Creamos la variable $conexion
     $conexion = new PDO(
-        "mysql:host=localhost;dbname=sigaa_web;charset=utf8mb4", // Asegúrate que el nombre de la BD sea 'sigaa_web' como en tu SQL
+        "mysql:host=localhost;dbname=c.e.c.c;charset=utf8mb4", // Asegúrate que el nombre de la BD sea 'sigaa_web' como en tu SQL
         "root",
         ""
     );

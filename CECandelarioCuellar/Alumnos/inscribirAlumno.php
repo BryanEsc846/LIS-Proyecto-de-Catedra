@@ -3,10 +3,10 @@ session_start();
 require_once '../config/conexion.php';
 
 // Verificar sesión (seguridad básica)
-if (!isset($_SESSION['id_usuario'])) {
+/*if (!isset($_SESSION['id_usuario'])) {
     header("Location: ../auth/login.php");
     exit;
-}
+}*/
 
 $mensaje = "";
 $tipo_alerta = "";

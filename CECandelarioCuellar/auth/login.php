@@ -130,7 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </form>
             </div>
             <div class="card-footer text-center bg-white border-0 pb-3">
-                <small class="text-muted">¿Olvidó su contraseña? Contacte a soporte.</small>
+                <small class="text-muted">¿Olvidó su contraseña? <a href="register.php" class="text-decoration-none">Registrate aquí</a>.</small>
             </div>
         </div>
         <p class="text-center mt-4 text-muted small">&copy; 2026 C.E. Candelario Cuellar</p>

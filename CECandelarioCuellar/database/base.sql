@@ -1,5 +1,5 @@
-CREATE DATABASE IF NOT EXISTS `sigaa_web` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `sigaa_web`;
+CREATE DATABASE IF NOT EXISTS `c.e.c.c` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `c.e.c.c`;
 
 -- ------------------------------------------------------
 -- Tabla: estudiante
