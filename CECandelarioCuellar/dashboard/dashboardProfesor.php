@@ -1,4 +1,5 @@
 <?php 
+session_start();
 /*if (!isset($_SESSION['id_usuario'])) {
     header("Location: ../auth/login.php");
     exit;
@@ -21,7 +22,12 @@
         <span class="navbar-brand mb-0 h1 fw-bold">
             Centro Escolar Candelario Cuellar
         </span>
-        <a href="../auth/login.php" class="btn btn-outline-light btn-sm">Salir</a>
+        <div class="d-flex align-items-center">
+            <span class="text-white me-3 d-none d-md-block small">
+                <?= htmlspecialchars($_SESSION['nombre_completo'] ?? 'Docente') ?>
+            </span>
+            <a href="../auth/login.php" class="btn btn-outline-light btn-sm">Salir</a>
+        </div>
     </div>
 </nav>
 
@@ -47,24 +53,25 @@
             <div class="card card-menu shadow-sm p-4 text-center">
                 <div class="icon-circle">📋</div>
                 <h4>Lista de Alumnos</h4>
-                <p class="text-secondary small">Consulta y asigna notas a tus alumnos.</p>
-                <a href="../Alumnos/verAlumnos.php" class="btn btn-principal w-100 mt-3">Gestionar</a>
+                <p class="text-secondary small">Consulta el listado de tus alumnos por ciclo.</p>
+                <a href="../Alumnos/verAlumnos.php" class="btn btn-principal w-100 mt-3">Ver Listado</a>
             </div>
         </div>
 
+        <!-- NUEVO: Notas -->
         <div class="col-md-4">
             <div class="card card-menu shadow-sm p-4 text-center">
-                <div class="icon-circle">✅</div>
-                <h4>Asistencia</h4>
-                <p class="text-secondary small">Registra la asistencia de tus alumnos.</p>
-                <a href="../Alumnos/verAlumnos.php" class="btn btn-principal w-100 mt-3">Registrar</a>
+                <div class="icon-circle">📊</div>
+                <h4>Notas</h4>
+                <p class="text-secondary small">Registra y consulta las notas de tus alumnos por periodo.</p>
+                <a href="../Alumnos/notasAlumnos.php" class="btn btn-principal w-100 mt-3">Gestionar Notas</a>
             </div>
         </div>
 
         <div class="col-md-4">
             <div class="card card-menu shadow-sm p-4 text-center">
                 <div class="icon-circle">📝</div>
-                <h4>Matricula</h4>
+                <h4>Matrícula</h4>
                 <p class="text-secondary small">Gestiona la matrícula de tus alumnos.</p>
                 <a href="../Alumnos/inscribirAlumno.php" class="btn btn-principal w-100 mt-3">Gestionar</a>
             </div>
