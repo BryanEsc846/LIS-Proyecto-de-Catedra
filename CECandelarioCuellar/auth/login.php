@@ -111,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label class="form-label fw-bold text-secondary">Correo Electrónico</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light"><i class="bi bi-envelope-fill"></i></span>
-                            <input type="email" name="email" class="form-control" placeholder="Ej: admin@gmail.com" value="<?= htmlspecialchars($email_input) ?>" required autofocus>
+                            <input type="email" name="email" class="form-control" placeholder="docente@ejemplo.com" value="<?= htmlspecialchars($email_input) ?>" required autofocus>
                         </div>
                         <small class="text-muted">Ingrese el correo asociado a su cuenta.</small>
                     </div>

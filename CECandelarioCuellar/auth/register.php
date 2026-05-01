@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label class="form-label fw-bold text-secondary">Nombre</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light"><i class="bi bi-person-fill"></i></span>
-                            <input type="text" name="nombre" class="form-control" placeholder="Ej: Juan" required>
+                            <input type="text" name="nombre" class="form-control" placeholder="Nombre del Docente" required>
                         </div>
                     </div>
 
@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label class="form-label fw-bold text-secondary">Apellido</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light"><i class="bi bi-person-fill"></i></span>
-                            <input type="text" name="apellido" class="form-control" placeholder="Ej: Pérez" required>
+                            <input type="text" name="apellido" class="form-control" placeholder="Apellido del Docente" required>
                         </div>
                     </div>
 
@@ -72,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label class="form-label fw-bold text-secondary">Correo Electrónico</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light"><i class="bi bi-envelope-fill"></i></span>
-                            <input type="email" name="email" class="form-control" placeholder="Ej: docente@gmail.com" required>
+                            <input type="email" name="email" class="form-control" placeholder="docente@ejemplo.com" required>
                         </div>
                     </div>
 

@@ -57,7 +57,7 @@
                 <div class="icon-circle">✅</div>
                 <h4>Asistencia</h4>
                 <p class="text-secondary small">Registra la asistencia de tus alumnos.</p>
-                <a href="#" class="btn btn-principal w-100 mt-3">Registrar</a>
+                <a href="../Alumnos/verAlumnos.php" class="btn btn-principal w-100 mt-3">Registrar</a>
             </div>
         </div>
 
@@ -66,7 +66,7 @@
                 <div class="icon-circle">📝</div>
                 <h4>Matricula</h4>
                 <p class="text-secondary small">Gestiona la matrícula de tus alumnos.</p>
-                <a href="#" class="btn btn-principal w-100 mt-3">Gestionar</a>
+                <a href="../Alumnos/inscribirAlumno.php" class="btn btn-principal w-100 mt-3">Gestionar</a>
             </div>
         </div>
     </div>
