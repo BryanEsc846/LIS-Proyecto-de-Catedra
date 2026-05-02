@@ -146,18 +146,26 @@ CREATE TABLE `asistencia` (
 -- ------------------------------------------------------
 -- Tabla: calificacion
 -- ------------------------------------------------------
-CREATE TABLE `calificacion` (
-  `id_calificacion` int NOT NULL AUTO_INCREMENT,
+
+CREATE TABLE `detalle_calificacion` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `id_matricula` int NOT NULL,
   `id_materia` varchar(20) NOT NULL,
   `id_usuario` int NOT NULL,
   `periodo` tinyint NOT NULL COMMENT '1, 2 o 3',
-  `nota` decimal(4,2) NOT NULL,
+  `actividad1` decimal(4,2) DEFAULT 0.00,
+  `examen1` decimal(4,2) DEFAULT 0.00,
+  `actividad2` decimal(4,2) DEFAULT 0.00,
+  `examen2` decimal(4,2) DEFAULT 0.00,
+  `actividad3` decimal(4,2) DEFAULT 0.00,
+  `examen3` decimal(4,2) DEFAULT 0.00,
+  `nota_final` decimal(4,2) DEFAULT 0.00,
   `fecha_registro` date NOT NULL,
-  PRIMARY KEY (`id_calificacion`),
-  CONSTRAINT `fk_cal_materia` FOREIGN KEY (`id_materia`) REFERENCES `materia` (`id_materia`) ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT `fk_cal_matricula` FOREIGN KEY (`id_matricula`) REFERENCES `matricula` (`id_matricula`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_cal_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuario` (`id_usuario`) ON DELETE RESTRICT ON UPDATE CASCADE
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unico_calificacion` (`id_matricula`, `id_materia`, `id_usuario`, `periodo`),
+  CONSTRAINT `fk_dc_matricula` FOREIGN KEY (`id_matricula`) REFERENCES `matricula` (`id_matricula`) ON DELETE CASCADE,
+  CONSTRAINT `fk_dc_materia` FOREIGN KEY (`id_materia`) REFERENCES `materia` (`id_materia`),
+  CONSTRAINT `fk_dc_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuario` (`id_usuario`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------
@@ -208,6 +216,7 @@ BEGIN
         SET p_id_estudiante = LAST_INSERT_ID();
         SET p_mensaje = 'Estudiante registrado exitosamente';
         COMMIT;
+
 
 
 END //
