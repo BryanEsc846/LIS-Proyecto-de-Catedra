@@ -46,7 +46,7 @@
                 <div class="icon-circle">📅</div>
                 <h4>Horarios</h4>
                 <p class="text-secondary small">Gestion de horarios de clases.</p>
-                <a href="../horarios/verHorarios.php" class="btn btn-principal w-100 mt-3">Gestionar</a>
+                <a href="../horarios/horariosAdmin.php" class="btn btn-principal w-100 mt-3">Ver Horarios</a>
             </div>
         </div>
 
