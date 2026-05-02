@@ -292,7 +292,7 @@ $docentes_sin_asig = $conexion->query("
                             <?php endif; ?>
                         </td>
                         <td>
-                            <?= $row['total_clases'] ?? 0 ?> <span class="text-muted small">/ 30 esperadas</span>
+                            <?= $row['total_clases'] ?? 0 ?> <span class="text-muted small">/ 15 esperadas</span>
                         </td>
                         <td>
                             <?= $row['fecha_generacion']

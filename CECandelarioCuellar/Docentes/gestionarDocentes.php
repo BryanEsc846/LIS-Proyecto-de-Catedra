@@ -7,10 +7,29 @@ require_once '../config/conexion.php';
     exit;
 }*/
 
+// -------------------------------------------------------
+// ESTRUCTURA DE CICLOS Y SECCIONES
+// -------------------------------------------------------
 $ciclos = [
     'Primer Ciclo'  => ['1° "A"','1° "B"','2° "A"','2° "B"','3° "A"','3° "B"'],
     'Segundo Ciclo' => ['4° "A"','4° "B"','5° "A"','5° "B"','6° "A"','6° "B"'],
     'Tercer Ciclo'  => ['7° "A"','7° "B"','8° "A"','8° "B"','9° "A"','9° "B"'],
+];
+
+// Sección A = grados con "A", Sección B = grados con "B"
+$secciones = [
+    'Primer Ciclo'  => [
+        'A' => ['1° "A"','2° "A"','3° "A"'],
+        'B' => ['1° "B"','2° "B"','3° "B"'],
+    ],
+    'Segundo Ciclo' => [
+        'A' => ['4° "A"','5° "A"','6° "A"'],
+        'B' => ['4° "B"','5° "B"','6° "B"'],
+    ],
+    'Tercer Ciclo'  => [
+        'A' => ['7° "A"','8° "A"','9° "A"'],
+        'B' => ['7° "B"','8° "B"','9° "B"'],
+    ],
 ];
 
 function getCicloDeGrado($grado, $ciclos) {
@@ -18,6 +37,24 @@ function getCicloDeGrado($grado, $ciclos) {
         if (in_array($grado, $grados)) return $nombre;
     }
     return null;
+}
+
+/**
+ * Detecta la sección (A/B/TODOS/completo) de un docente según sus grados asignados.
+ * $grados_csv = cadena separada por comas de los grados asignados
+ * $total      = cantidad de filas en asignacion_docente para ese docente
+ */
+function getSeccionDocente($grados_csv, $total) {
+    if (!$grados_csv) return null;
+    if ($total == 18) return 'TODOS';       // EDF global
+    if ($total >= 6) return 'completo';    // todo el ciclo (6 grados)
+    if ($total == 3) {
+        $tieneA = str_contains($grados_csv, '"A"');
+        $tieneB = str_contains($grados_csv, '"B"');
+        if ($tieneA && !$tieneB) return 'A';
+        if ($tieneB && !$tieneA) return 'B';
+    }
+    return 'parcial';
 }
 
 $errores  = [];
@@ -31,13 +68,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // --- Registrar nuevo docente ---
     if ($action === 'crear_docente') {
-        $nombre     = trim($_POST['nombre']    ?? '');
-        $apellido   = trim($_POST['apellido']  ?? '');
-        $email      = trim($_POST['email']     ?? '');
-        $password   = $_POST['password']       ?? '';
-        $password2  = $_POST['password2']      ?? '';
-        $ciclo_new  = $_POST['ciclo_nuevo']    ?? '';
-        $materia_new= $_POST['materia_nuevo']  ?? '';
+        $nombre      = trim($_POST['nombre']    ?? '');
+        $apellido    = trim($_POST['apellido']  ?? '');
+        $email       = trim($_POST['email']     ?? '');
+        $password    = $_POST['password']       ?? '';
+        $password2   = $_POST['password2']      ?? '';
+        $ciclo_new   = $_POST['ciclo_nuevo']    ?? '';
+        $seccion_new = $_POST['seccion_nuevo']  ?? 'A';
+        $materia_new = $_POST['materia_nuevo']  ?? '';
 
         if (!$nombre || !$apellido || !$email || !$password) {
             $errores[] = 'Nombre, apellido, correo y contraseña son obligatorios.';
@@ -60,41 +98,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 )->execute([$nombre, $apellido, $email, $hash]);
                 $new_id = $conexion->lastInsertId();
 
-                // Asignar ciclo + materia si se seleccionaron
                 if ($ciclo_new && $materia_new && $new_id) {
-                    if ($ciclo_new === 'TODOS' && $materia_new === 'EDF') {
+                    $stmtA = $conexion->prepare(
+                        "INSERT INTO asignacion_docente (id_usuario, id_grado, id_materia, año_lectivo)
+                         VALUES (?, ?, ?, YEAR(CURDATE()))"
+                    );
+
+                    if ($ciclo_new === 'TODOS') {
+                        // EDF: todos los grados
                         $todos = array_merge(...array_values($ciclos));
-                        $stmtA = $conexion->prepare(
-                            "INSERT INTO asignacion_docente (id_usuario, id_grado, id_materia, año_lectivo)
-                             VALUES (?, ?, 'EDF', YEAR(CURDATE()))"
-                        );
-                        foreach ($todos as $g) $stmtA->execute([$new_id, $g]);
-                    } elseif (isset($ciclos[$ciclo_new])) {
-                        $stmtA = $conexion->prepare(
-                            "INSERT INTO asignacion_docente (id_usuario, id_grado, id_materia, año_lectivo)
-                             VALUES (?, ?, ?, YEAR(CURDATE()))"
-                        );
-                        foreach ($ciclos[$ciclo_new] as $g) $stmtA->execute([$new_id, $g, $materia_new]);
+                        foreach ($todos as $g) $stmtA->execute([$new_id, $g, 'EDF']);
+                        $desc_asig = 'todos los grados (EDF)';
+                    } elseif (isset($secciones[$ciclo_new])) {
+                        if ($seccion_new === 'TODOS') {
+                            // Todo el ciclo (6 grados) — solo recomendado para EDF del ciclo
+                            $grados_asig = $ciclos[$ciclo_new];
+                        } else {
+                            // Sección A o B (3 grados) — sin conflictos para materias de 3 bloques
+                            $grados_asig = $secciones[$ciclo_new][$seccion_new] ?? $secciones[$ciclo_new]['A'];
+                        }
+                        foreach ($grados_asig as $g) $stmtA->execute([$new_id, $g, $materia_new]);
+                        $seccion_label = ($seccion_new === 'TODOS') ? '(ciclo completo)' : "Sección {$seccion_new}";
+                        $desc_asig = "{$ciclo_new} – {$seccion_label}";
                     }
-                    $exito = "Docente <strong>{$nombre} {$apellido}</strong> registrado y asignado a <strong>{$ciclo_new}</strong>.";
+                    $exito = "Docente <strong>{$nombre} {$apellido}</strong> registrado y asignado a <strong>{$desc_asig}</strong>.";
                 } else {
-                    $exito = "Docente <strong>{$nombre} {$apellido}</strong> registrado. Usa el lápiz para asignarle ciclo y materia.";
+                    $exito = "Docente <strong>{$nombre} {$apellido}</strong> registrado. Usa el lápiz para asignarle ciclo, sección y materia.";
                 }
             }
         }
     }
 
-    // --- Editar asignación (ciclo + materia + activo) ---
+    // --- Editar asignación ---
     if ($action === 'editar_asignacion') {
         $id_docente = (int)($_POST['id_docente'] ?? 0);
-        $ciclo_sel  = $_POST['ciclo']   ?? '';
-        $id_materia = $_POST['materia'] ?? '';
+        $ciclo_sel  = $_POST['ciclo']    ?? '';
+        $seccion_sel= $_POST['seccion']  ?? 'A';
+        $id_materia = $_POST['materia']  ?? '';
         $activo     = isset($_POST['activo']) ? 1 : 0;
 
         if (!$id_docente) {
             $errores[] = 'Docente no válido.';
-        } elseif ($ciclo_sel === 'TODOS' && $id_materia === 'EDF') {
-            // Caso especial: EDF → todos los grados
+        } elseif ($ciclo_sel === 'TODOS') {
+            // EDF global (todos los grados)
             $todos_grados = array_merge(...array_values($ciclos));
             $conexion->prepare(
                 "DELETE FROM asignacion_docente WHERE id_usuario = ? AND año_lectivo = YEAR(CURDATE())"
@@ -106,7 +152,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach ($todos_grados as $g) $stmt->execute([$id_docente, $g]);
             $conexion->prepare("UPDATE usuario SET activo=? WHERE id_usuario=?")->execute([$activo,$id_docente]);
         } elseif (isset($ciclos[$ciclo_sel]) && $id_materia) {
-            $grados_ciclo = $ciclos[$ciclo_sel];
             $conexion->prepare(
                 "DELETE FROM asignacion_docente WHERE id_usuario = ? AND año_lectivo = YEAR(CURDATE())"
             )->execute([$id_docente]);
@@ -114,17 +159,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 "INSERT INTO asignacion_docente (id_usuario, id_grado, id_materia, año_lectivo)
                  VALUES (?, ?, ?, YEAR(CURDATE()))"
             );
-            foreach ($grados_ciclo as $g) $stmt->execute([$id_docente, $g, $id_materia]);
+            if ($seccion_sel === 'TODOS') {
+                $grados_asig = $ciclos[$ciclo_sel]; // 6 grados
+            } else {
+                $grados_asig = $secciones[$ciclo_sel][$seccion_sel] ?? $secciones[$ciclo_sel]['A'];
+            }
+            foreach ($grados_asig as $g) $stmt->execute([$id_docente, $g, $id_materia]);
             $conexion->prepare("UPDATE usuario SET activo=? WHERE id_usuario=?")->execute([$activo,$id_docente]);
         } elseif ($ciclo_sel === '') {
-            // Solo actualizar estado activo sin tocar asignaciones
             $conexion->prepare("UPDATE usuario SET activo=? WHERE id_usuario=?")->execute([$activo,$id_docente]);
         } else {
             $errores[] = 'Ciclo o materia no válidos.';
         }
     }
 
-    // --- Eliminar docente (desactivar, no borrar) ---
+    // --- Desactivar docente ---
     if ($action === 'eliminar_docente') {
         $id_docente = (int)($_POST['id_docente'] ?? 0);
         if ($id_docente) {
@@ -143,7 +192,8 @@ $docentes = $conexion->query("
            MIN(a.id_grado)   AS un_grado,
            a.id_materia,
            m.nombre_materia,
-           COUNT(a.id_grado) AS total_grados
+           COUNT(a.id_grado) AS total_grados,
+           GROUP_CONCAT(a.id_grado ORDER BY a.id_grado SEPARATOR ',') AS grados_lista
     FROM usuario u
     LEFT JOIN asignacion_docente a
            ON u.id_usuario = a.id_usuario AND a.año_lectivo = YEAR(CURDATE())
@@ -158,19 +208,30 @@ $materias = $conexion->query(
     "SELECT id_materia, nombre_materia FROM materia ORDER BY nombre_materia"
 )->fetchAll();
 
-// Detectar materias ya asignadas por ciclo para el año actual
-$asignaciones_ciclo = [];
-foreach ($ciclos as $nombre_ciclo => $grados_ciclo) {
-    $primer_grado = $grados_ciclo[0];
-    $stmt = $conexion->prepare("
-        SELECT id_materia
-        FROM asignacion_docente
-        WHERE id_grado = ? AND año_lectivo = YEAR(CURDATE())
-    ");
-    $stmt->execute([$primer_grado]);
-    foreach ($stmt->fetchAll() as $row) {
-        $asignaciones_ciclo[$nombre_ciclo][] = $row['id_materia'];
+// Detectar cobertura por ciclo y sección para las tarjetas de resumen
+$cobertura_seccion = [];
+foreach ($secciones as $nombre_ciclo => $secs) {
+    foreach ($secs as $sec => $grades_sec) {
+        $primer_grado = $grades_sec[0];
+        $stmt = $conexion->prepare("
+            SELECT DISTINCT id_materia
+            FROM asignacion_docente
+            WHERE id_grado = ? AND año_lectivo = YEAR(CURDATE())
+        ");
+        $stmt->execute([$primer_grado]);
+        $cobertura_seccion[$nombre_ciclo][$sec] = array_column($stmt->fetchAll(), 'id_materia');
     }
+    // EDF: verificar si hay EDF en el ciclo (cualquier sección sirve)
+    $stmt = $conexion->prepare("
+        SELECT DISTINCT id_materia FROM asignacion_docente
+        WHERE id_grado = ? AND id_materia = 'EDF' AND año_lectivo = YEAR(CURDATE())
+    ");
+    $stmt->execute([$secs['A'][0]]);
+    if (!$stmt->fetch()) {
+        // Revisar en sección B también
+        $stmt->execute([$secs['B'][0]]);
+    }
+    // EDF se marca cubierto si cualquier grado del ciclo lo tiene
 }
 ?>
 <!DOCTYPE html>
@@ -187,6 +248,9 @@ foreach ($ciclos as $nombre_ciclo => $grados_ciclo) {
         .badge-ciclo  { font-size:0.78rem; }
         .row-inactivo { opacity: 0.55; }
         .asig-badge   { font-size:0.75rem; padding:3px 8px; border-radius:4px; }
+        .sec-a        { background:#264792; color:#fff; }
+        .sec-b        { background:#0d6b6b; color:#fff; }
+        .sec-todos    { background:#a0191f; color:#fff; }
     </style>
 </head>
 <body>
@@ -205,7 +269,10 @@ foreach ($ciclos as $nombre_ciclo => $grados_ciclo) {
     <div class="row mb-4 align-items-center">
         <div class="col">
             <h2 class="fw-bold mb-0">Gestión de Docentes</h2>
-            <p class="text-muted mb-0">Registra docentes y asigna ciclo y materia</p>
+            <p class="text-muted mb-0">
+                Registra docentes y asigna ciclo, <strong>sección (A/B)</strong> y materia.
+                Cada docente atiende <strong>3 grados</strong> para evitar conflictos de horario.
+            </p>
         </div>
         <div class="col-auto">
             <button class="btn btn-principal" data-bs-toggle="modal" data-bs-target="#modalNuevoDocente">
@@ -229,12 +296,23 @@ foreach ($ciclos as $nombre_ciclo => $grados_ciclo) {
     </div>
     <?php endif; ?>
 
-    <!-- Resumen de asignaciones por ciclo -->
+    <!-- =====================================================
+         Tarjetas de resumen: cobertura por ciclo y sección
+         ===================================================== -->
     <div class="row g-3 mb-4">
-    <?php foreach ($ciclos as $nombre_ciclo => $grados_ciclo):
-        $asig = $asignaciones_ciclo[$nombre_ciclo] ?? [];
-        $todas = array_column($materias, 'id_materia');
-        $faltantes = array_diff($todas, $asig, ['EDF']); // EDF es global
+    <?php
+    $ids_materia = array_column($materias, 'id_materia');
+    $materias_no_edf = array_filter($ids_materia, fn($m) => $m !== 'EDF');
+
+    foreach ($secciones as $nombre_ciclo => $secs):
+        // Check EDF coverage for any grade in the cycle
+        $edf_cubierta_ciclo = false;
+        foreach (array_merge($secs['A'], $secs['B']) as $g) {
+            if (in_array('EDF', $cobertura_seccion[$nombre_ciclo]['A'] ?? []) ||
+                in_array('EDF', $cobertura_seccion[$nombre_ciclo]['B'] ?? [])) {
+                $edf_cubierta_ciclo = true; break;
+            }
+        }
     ?>
         <div class="col-md-4">
             <div class="card shadow-sm h-100">
@@ -242,30 +320,41 @@ foreach ($ciclos as $nombre_ciclo => $grados_ciclo) {
                     <small class="fw-bold"><?= $nombre_ciclo ?></small>
                 </div>
                 <div class="card-body py-2">
-                    <?php foreach ($materias as $m):
-                        $cubierta = in_array($m['id_materia'], $asig);
-                        $esEDF    = $m['id_materia'] === 'EDF';
-                    ?>
-                    <span class="badge asig-badge me-1 mb-1"
-                          style="background:<?= $cubierta||$esEDF ? '#1a7c3e' : '#c0392b' ?>;color:#fff">
-                        <?= $cubierta||$esEDF ? '✓' : '✗' ?> <?= htmlspecialchars($m['id_materia']) ?>
-                    </span>
-                    <?php endforeach; ?>
-                    <?php if (!empty($faltantes)): ?>
-                    <div class="mt-1">
-                        <small class="text-danger">
-                            <i class="bi bi-exclamation-circle"></i>
-                            Faltan: <?= implode(', ', $faltantes) ?>
-                        </small>
+                <?php foreach ($secs as $sec => $grades_sec):
+                    $cubiertas = $cobertura_seccion[$nombre_ciclo][$sec] ?? [];
+                ?>
+                    <div class="mb-2">
+                        <span class="badge sec-<?= strtolower($sec) ?> me-1">Secc. <?= $sec ?></span>
+                        <small class="text-muted"><?= implode(', ',$grades_sec) ?></small>
+                        <div class="mt-1">
+                        <?php foreach ($materias_no_edf as $mat_id):
+                            $ok = in_array($mat_id, $cubiertas);
+                        ?>
+                            <span class="badge asig-badge me-1 mb-1"
+                                  style="background:<?= $ok ? '#1a7c3e' : '#c0392b' ?>;color:#fff">
+                                <?= $ok ? '✓' : '✗' ?> <?= htmlspecialchars($mat_id) ?>
+                            </span>
+                        <?php endforeach; ?>
+                        </div>
                     </div>
-                    <?php endif; ?>
+                <?php endforeach; ?>
+                    <!-- EDF es compartido por todo el ciclo -->
+                    <hr class="my-1">
+                    <small>
+                        <span class="badge asig-badge"
+                              style="background:<?= $edf_cubierta_ciclo ? '#1a7c3e' : '#c0392b' ?>;color:#fff">
+                            <?= $edf_cubierta_ciclo ? '✓' : '✗' ?> EDF (ciclo completo)
+                        </span>
+                    </small>
                 </div>
             </div>
         </div>
     <?php endforeach; ?>
     </div>
 
-    <!-- Tabla de docentes -->
+    <!-- =====================================================
+         Tabla de docentes
+         ===================================================== -->
     <div class="tabla-nomina shadow-sm">
         <div class="table-responsive">
             <table class="table table-hover align-middle text-center mb-0">
@@ -274,22 +363,22 @@ foreach ($ciclos as $nombre_ciclo => $grados_ciclo) {
                         <th class="ps-4 text-start">Docente</th>
                         <th>Correo</th>
                         <th>Ciclo</th>
+                        <th>Sección</th>
                         <th>Materia</th>
-                        <th>Grados</th>
+                        <th>Grados asignados</th>
                         <th>Estado</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                 <?php foreach ($docentes as $doc):
-                    $ciclo_actual  = $doc['un_grado'] ? getCicloDeGrado($doc['un_grado'], $ciclos) : null;
+                    $ciclo_actual = $doc['un_grado'] ? getCicloDeGrado($doc['un_grado'], $ciclos) : null;
+                    $seccion_det  = getSeccionDocente($doc['grados_lista'] ?? '', (int)$doc['total_grados']);
                     $es_edf_global = ($doc['id_materia'] === 'EDF' && $doc['total_grados'] == 18);
-                    $grados_desc   = null;
-                    if ($es_edf_global) {
-                        $grados_desc = 'Todos los grados';
-                    } elseif ($ciclo_actual) {
-                        $grados_desc = implode(', ', $ciclos[$ciclo_actual]);
-                    }
+
+                    // Determine section for edit modal pre-selection
+                    $modal_ciclo  = $es_edf_global ? 'TODOS' : ($ciclo_actual ?? '');
+                    $modal_seccion= ($seccion_det === 'A' || $seccion_det === 'B') ? $seccion_det : 'A';
                 ?>
                 <tr class="<?= !$doc['activo'] ? 'row-inactivo' : '' ?>">
                     <td class="ps-4 text-start fw-bold">
@@ -298,7 +387,7 @@ foreach ($ciclos as $nombre_ciclo => $grados_ciclo) {
                     <td><small class="text-muted"><?= htmlspecialchars($doc['email']) ?></small></td>
                     <td>
                         <?php if ($es_edf_global): ?>
-                            <span class="badge badge-ciclo" style="background:#a0191f;color:#fff">Todos los ciclos</span>
+                            <span class="badge badge-ciclo" style="background:#a0191f;color:#fff">Todos</span>
                         <?php elseif ($ciclo_actual): ?>
                             <span class="badge badge-ciclo" style="background:var(--color-azul-claro);color:#fff">
                                 <?= $ciclo_actual ?>
@@ -308,16 +397,31 @@ foreach ($ciclos as $nombre_ciclo => $grados_ciclo) {
                         <?php endif; ?>
                     </td>
                     <td>
+                        <?php if ($seccion_det === 'A'): ?>
+                            <span class="badge sec-a">Secc. A</span>
+                        <?php elseif ($seccion_det === 'B'): ?>
+                            <span class="badge sec-b">Secc. B</span>
+                        <?php elseif ($seccion_det === 'TODOS'): ?>
+                            <span class="badge sec-todos">Todos</span>
+                        <?php elseif ($seccion_det === 'completo'): ?>
+                            <span class="badge bg-secondary">Ciclo completo</span>
+                        <?php else: ?>
+                            <span class="text-muted small">—</span>
+                        <?php endif; ?>
+                    </td>
+                    <td>
                         <?= $doc['nombre_materia']
                             ? htmlspecialchars($doc['nombre_materia'])
                             : '<span class="text-muted small">—</span>' ?>
                     </td>
                     <td>
-                        <?php if ($grados_desc): ?>
-                            <small class="text-muted"><?= htmlspecialchars($grados_desc) ?></small>
+                        <small class="text-muted">
+                        <?php if ($doc['grados_lista']): ?>
+                            <?= htmlspecialchars(str_replace(',', ', ', $doc['grados_lista'])) ?>
                         <?php else: ?>
-                            <span class="text-muted small">—</span>
+                            —
                         <?php endif; ?>
+                        </small>
                     </td>
                     <td>
                         <span class="badge <?= $doc['activo'] ? 'bg-success' : 'bg-secondary' ?>">
@@ -333,7 +437,7 @@ foreach ($ciclos as $nombre_ciclo => $grados_ciclo) {
                     </td>
                 </tr>
 
-                <!-- ===== MODAL EDITAR ASIGNACIÓN ===== -->
+                <!-- ===== MODAL EDITAR ===== -->
                 <div class="modal fade" id="modalEdit<?= $doc['id_usuario'] ?>" tabindex="-1" aria-hidden="true">
                     <div class="modal-dialog modal-lg">
                         <div class="modal-content">
@@ -345,36 +449,55 @@ foreach ($ciclos as $nombre_ciclo => $grados_ciclo) {
                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                             </div>
                             <form method="POST">
-                                <input type="hidden" name="action"    value="editar_asignacion">
+                                <input type="hidden" name="action"     value="editar_asignacion">
                                 <input type="hidden" name="id_docente" value="<?= $doc['id_usuario'] ?>">
                                 <div class="modal-body">
 
-                                    <!-- Ciclo -->
-                                    <div class="mb-3">
-                                        <label class="form-label fw-bold">Ciclo escolar</label>
-                                        <select class="form-select" name="ciclo"
-                                                id="selectCiclo<?= $doc['id_usuario'] ?>"
-                                                onchange="actualizarPreview(<?= $doc['id_usuario'] ?>)">
-                                            <option value="">— Sin asignar (solo cambiar estado) —</option>
-                                            <?php foreach ($ciclos as $nc => $gc): ?>
-                                            <option value="<?= htmlspecialchars($nc) ?>"
-                                                <?= ($ciclo_actual === $nc && !$es_edf_global) ? 'selected' : '' ?>>
-                                                <?= $nc ?>
-                                                (<?= implode(', ', array_filter($gc, fn($g)=>str_contains($g,'"A"'))) ?>…)
-                                            </option>
-                                            <?php endforeach; ?>
-                                            <option value="TODOS" <?= $es_edf_global ? 'selected' : '' ?>>
-                                                Todos los grados (solo EDF)
-                                            </option>
-                                        </select>
+                                    <!-- Fila: Ciclo + Sección -->
+                                    <div class="row g-3 mb-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-bold">Ciclo escolar</label>
+                                            <select class="form-select" name="ciclo"
+                                                    id="editCiclo<?= $doc['id_usuario'] ?>"
+                                                    onchange="editActualizar(<?= $doc['id_usuario'] ?>)">
+                                                <option value="">— Sin asignar —</option>
+                                                <?php foreach ($ciclos as $nc => $gc): ?>
+                                                <option value="<?= htmlspecialchars($nc) ?>"
+                                                    <?= ($modal_ciclo === $nc) ? 'selected' : '' ?>>
+                                                    <?= $nc ?>
+                                                </option>
+                                                <?php endforeach; ?>
+                                                <option value="TODOS" <?= ($modal_ciclo === 'TODOS') ? 'selected' : '' ?>>
+                                                    Todos los grados (solo EDF)
+                                                </option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6" id="wrapSeccionEdit<?= $doc['id_usuario'] ?>">
+                                            <label class="form-label fw-bold">Sección</label>
+                                            <select class="form-select" name="seccion"
+                                                    id="editSeccion<?= $doc['id_usuario'] ?>"
+                                                    onchange="editActualizar(<?= $doc['id_usuario'] ?>)">
+                                                <option value="A"    <?= ($modal_seccion==='A')     ?'selected':'' ?>>
+                                                    Sección A (1°A, 2°A, 3°A… del ciclo)
+                                                </option>
+                                                <option value="B"    <?= ($modal_seccion==='B')     ?'selected':'' ?>>
+                                                    Sección B (1°B, 2°B, 3°B… del ciclo)
+                                                </option>
+                                                <option value="TODOS" <?= ($seccion_det==='completo')?'selected':'' ?>>
+                                                    Ciclo completo (6 grados — solo EDF del ciclo)
+                                                </option>
+                                            </select>
+                                            <div class="form-text">Para materias con 3 bloques semanales, usa Sección A o B.</div>
+                                        </div>
                                     </div>
 
                                     <!-- Preview grados -->
-                                    <div id="preview<?= $doc['id_usuario'] ?>" class="mb-3">
-                                        <?php if ($grados_desc): ?>
+                                    <div id="editPreview<?= $doc['id_usuario'] ?>" class="mb-3">
+                                        <?php if ($doc['grados_lista']): ?>
                                         <div class="alert alert-info py-2 mb-0">
                                             <small><i class="bi bi-info-circle me-1"></i>
-                                            <strong>Grados incluidos:</strong> <?= htmlspecialchars($grados_desc) ?>
+                                            <strong>Grados actuales:</strong>
+                                            <?= htmlspecialchars(str_replace(',', ', ', $doc['grados_lista'])) ?>
                                             </small>
                                         </div>
                                         <?php endif; ?>
@@ -384,7 +507,7 @@ foreach ($ciclos as $nombre_ciclo => $grados_ciclo) {
                                     <div class="mb-3">
                                         <label class="form-label fw-bold">Materia</label>
                                         <select class="form-select" name="materia"
-                                                id="selectMateria<?= $doc['id_usuario'] ?>">
+                                                id="editMateria<?= $doc['id_usuario'] ?>">
                                             <option value="">— Sin materia —</option>
                                             <?php foreach ($materias as $m): ?>
                                             <option value="<?= $m['id_materia'] ?>"
@@ -394,7 +517,7 @@ foreach ($ciclos as $nombre_ciclo => $grados_ciclo) {
                                             <?php endforeach; ?>
                                         </select>
                                         <div class="form-text text-muted">
-                                            Si seleccionas "Todos los grados", solo se permitirá Educación Física.
+                                            "Todos los grados" o "Ciclo completo" → solo permite Educación Física.
                                         </div>
                                     </div>
 
@@ -407,7 +530,6 @@ foreach ($ciclos as $nombre_ciclo => $grados_ciclo) {
                                             Docente activo
                                         </label>
                                     </div>
-
                                 </div>
                                 <div class="modal-footer">
                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -433,7 +555,9 @@ foreach ($ciclos as $nombre_ciclo => $grados_ciclo) {
 
 </div>
 
-<!-- ===== MODAL NUEVO DOCENTE ===== -->
+<!-- =====================================================
+     MODAL NUEVO DOCENTE
+     ===================================================== -->
 <div class="modal fade" id="modalNuevoDocente" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -494,28 +618,42 @@ foreach ($ciclos as $nombre_ciclo => $grados_ciclo) {
 
                     <hr>
 
-                    <!-- Asignación de ciclo y materia -->
+                    <!-- Asignación -->
                     <p class="fw-bold mb-2" style="color:var(--color-azul-oscuro)">
-                        <i class="bi bi-book me-1"></i> Asignación de ciclo y materia
-                        <span class="text-muted fw-normal small">(opcional, se puede hacer después)</span>
+                        <i class="bi bi-book me-1"></i> Asignación de ciclo, sección y materia
+                        <span class="text-muted fw-normal small">(opcional)</span>
                     </p>
+                    <div class="alert alert-info py-2 mb-3">
+                        <small>
+                            <i class="bi bi-lightbulb me-1"></i>
+                            <strong>Tip sin conflictos:</strong> asigna <strong>Sección A</strong> o
+                            <strong>Sección B</strong> (3 grados) para cualquier materia de 6h/semana.
+                            Solo EDF puede cubrir el ciclo completo (6 grados) sin conflicto.
+                        </small>
+                    </div>
                     <div class="row g-3">
-                        <div class="col-6">
+                        <div class="col-md-4">
                             <label class="form-label fw-bold">Ciclo escolar</label>
                             <select class="form-select" name="ciclo_nuevo" id="cicloNuevo"
-                                    onchange="actualizarMateriaDisponible()">
+                                    onchange="nuevoActualizar()">
                                 <option value="">— Sin asignar por ahora —</option>
                                 <?php foreach ($ciclos as $nc => $gc): ?>
-                                <option value="<?= htmlspecialchars($nc) ?>">
-                                    <?= $nc ?>
-                                    (<?= implode(', ', array_filter($gc, fn($g) => str_contains($g,'"A"'))) ?>…)
-                                </option>
+                                <option value="<?= htmlspecialchars($nc) ?>"><?= $nc ?></option>
                                 <?php endforeach; ?>
                                 <option value="TODOS">Todos los grados (solo EDF)</option>
                             </select>
                         </div>
-                        <div class="col-6">
-                            <label class="form-label fw-bold">Materia que impartirá</label>
+                        <div class="col-md-4" id="wrapSeccionNuevo">
+                            <label class="form-label fw-bold">Sección</label>
+                            <select class="form-select" name="seccion_nuevo" id="seccionNuevo"
+                                    onchange="nuevoActualizar()">
+                                <option value="A">Sección A (1°A, 2°A, 3°A…)</option>
+                                <option value="B">Sección B (1°B, 2°B, 3°B…)</option>
+                                <option value="TODOS">Ciclo completo (solo EDF)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Materia</label>
                             <select class="form-select" name="materia_nuevo" id="materiaNuevo">
                                 <option value="">— Sin asignar por ahora —</option>
                                 <?php foreach ($materias as $m): ?>
@@ -547,59 +685,86 @@ foreach ($ciclos as $nombre_ciclo => $grados_ciclo) {
 
 <!-- Datos para JS -->
 <script>
-const ciclosData = <?= json_encode($ciclos) ?>;
+const ciclosData   = <?= json_encode($ciclos) ?>;
+const seccionesData= <?= json_encode($secciones) ?>;
 
-function actualizarPreview(idDocente) {
-    const select  = document.getElementById('selectCiclo'  + idDocente);
-    const selMat  = document.getElementById('selectMateria'+ idDocente);
-    const preview = document.getElementById('preview'      + idDocente);
-    const ciclo   = select.value;
+/* ---- Formulario NUEVO DOCENTE ---- */
+function nuevoActualizar() {
+    const ciclo   = document.getElementById('cicloNuevo').value;
+    const seccion = document.getElementById('seccionNuevo').value;
+    const selMat  = document.getElementById('materiaNuevo');
+    const preview = document.getElementById('previewNuevo');
+    const wrapSec = document.getElementById('wrapSeccionNuevo');
 
     if (ciclo === 'TODOS') {
-        preview.innerHTML = `
-            <div class="alert alert-warning py-2 mb-0">
-                <small><i class="bi bi-info-circle me-1"></i>
-                <strong>Grados incluidos:</strong> Los 18 grados (1° al 9°).
-                Solo aplica para Educación Física.</small>
-            </div>`;
-        // Forzar selección de EDF
-        for (let opt of selMat.options) {
-            if (opt.value === 'EDF') { opt.selected = true; break; }
-        }
-    } else if (ciclo && ciclosData[ciclo]) {
-        const grados = ciclosData[ciclo].join(', ');
-        preview.innerHTML = `
-            <div class="alert alert-info py-2 mb-0">
-                <small><i class="bi bi-info-circle me-1"></i>
-                <strong>Grados incluidos:</strong> ${grados}</small>
-            </div>`;
+        wrapSec.style.display = 'none';
+        // Forzar EDF
+        for (let opt of selMat.options) opt.selected = (opt.value === 'EDF');
+        preview.innerHTML = `<div class="alert alert-warning py-2 mb-0 small">
+            <i class="bi bi-info-circle me-1"></i>
+            <strong>Grados:</strong> Los 18 grados (1° – 9°). Solo EDF.
+        </div>`;
+        return;
+    }
+
+    wrapSec.style.display = '';
+
+    if (!ciclo) { preview.innerHTML = ''; return; }
+
+    let grados = [];
+    if (seccion === 'TODOS') {
+        grados = ciclosData[ciclo] || [];
     } else {
-        preview.innerHTML = '';
+        grados = (seccionesData[ciclo] && seccionesData[ciclo][seccion]) || [];
+    }
+
+    if (seccion === 'TODOS') {
+        for (let opt of selMat.options) opt.selected = (opt.value === 'EDF');
+        preview.innerHTML = `<div class="alert alert-warning py-2 mb-0 small">
+            <i class="bi bi-info-circle me-1"></i>
+            <strong>Grados (ciclo completo):</strong> ${grados.join(', ')} — solo EDF.
+        </div>`;
+    } else {
+        preview.innerHTML = `<div class="alert alert-info py-2 mb-0 small">
+            <i class="bi bi-info-circle me-1"></i>
+            <strong>Grados asignados:</strong> ${grados.join(', ')}
+            &nbsp;|&nbsp; <span class="text-success fw-bold">Sin conflictos de horario ✓</span>
+        </div>`;
     }
 }
 
-function actualizarMateriaDisponible() {
-    const ciclo   = document.getElementById('cicloNuevo').value;
-    const selMat  = document.getElementById('materiaNuevo');
-    const preview = document.getElementById('previewNuevo');
+/* ---- Formulario EDITAR (por id) ---- */
+function editActualizar(id) {
+    const ciclo   = document.getElementById('editCiclo'   + id).value;
+    const seccion = document.getElementById('editSeccion' + id).value;
+    const selMat  = document.getElementById('editMateria' + id);
+    const preview = document.getElementById('editPreview' + id);
+    const wrapSec = document.getElementById('wrapSeccionEdit' + id);
 
     if (ciclo === 'TODOS') {
-        // Forzar EDF
-        for (let opt of selMat.options) {
-            opt.selected = (opt.value === 'EDF');
-        }
+        wrapSec.style.display = 'none';
+        for (let opt of selMat.options) opt.selected = (opt.value === 'EDF');
+        preview.innerHTML = `<div class="alert alert-warning py-2 mb-0 small">
+            <i class="bi bi-info-circle me-1"></i>Los 18 grados. Solo EDF.</div>`;
+        return;
+    }
+
+    wrapSec.style.display = '';
+    if (!ciclo) { preview.innerHTML = ''; return; }
+
+    let grados = [];
+    if (seccion === 'TODOS') {
+        grados = ciclosData[ciclo] || [];
+        for (let opt of selMat.options) opt.selected = (opt.value === 'EDF');
         preview.innerHTML = `<div class="alert alert-warning py-2 mb-0 small">
             <i class="bi bi-info-circle me-1"></i>
-            Al seleccionar <strong>Todos los grados</strong> solo se puede asignar <strong>Educación Física</strong>.
-        </div>`;
-    } else if (ciclo && ciclosData[ciclo]) {
-        const grados = ciclosData[ciclo].join(', ');
+            <strong>Ciclo completo:</strong> ${grados.join(', ')} — solo EDF.</div>`;
+    } else {
+        grados = (seccionesData[ciclo] && seccionesData[ciclo][seccion]) || [];
         preview.innerHTML = `<div class="alert alert-info py-2 mb-0 small">
             <i class="bi bi-info-circle me-1"></i>
-            <strong>Grados que atenderá:</strong> ${grados}
-        </div>`;
-    } else {
-        preview.innerHTML = '';
+            <strong>Grados:</strong> ${grados.join(', ')}
+            &nbsp;|&nbsp;<span class="text-success fw-bold">Sin conflictos ✓</span></div>`;
     }
 }
 
@@ -615,11 +780,10 @@ function togglePwd(inputId, iconId) {
     }
 }
 
-// Abrir modal de nuevo docente si hubo error al crearlo
+// Reabrir modal nuevo si hubo error
 <?php if (!empty($errores) && ($_POST['action'] ?? '') === 'crear_docente'): ?>
 document.addEventListener('DOMContentLoaded', function() {
-    var modal = new bootstrap.Modal(document.getElementById('modalNuevoDocente'));
-    modal.show();
+    new bootstrap.Modal(document.getElementById('modalNuevoDocente')).show();
 });
 <?php endif; ?>
 </script>
