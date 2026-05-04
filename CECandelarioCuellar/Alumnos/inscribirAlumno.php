@@ -67,15 +67,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         if (move_uploaded_file($archivo['tmp_name'], $ruta_destino)) {
             try {
-                // Paso 1: Llamar al SP original (sin modificarlo)
-                $sql = "CALL sp_insertar_estudiante(
+                // Iniciamos la transacción en PHP
+                $conexion->beginTransaction();
+
+                // Paso 1: Insertar en la tabla estudiante directamente
+                $sqlEstudiante = "INSERT INTO estudiante (
+                    nombre, apellido, fecha_nacimiento, ruta_partida_nacimiento,
+                    nombre_padre_madre, telefono_padre_madre, dui_padre_madre, activo
+                ) VALUES (
                     :nombre, :apellido, :fecha, :ruta,
-                    :padre, :telefono, :dui,
-                    @p_id_out, @p_msg_out
+                    :padre, :telefono, :dui, 1
                 )";
 
-                $stmt = $conexion->prepare($sql);
-                $stmt->execute([
+                $stmtEst = $conexion->prepare($sqlEstudiante);
+                $stmtEst->execute([
                     ':nombre'   => $nombre_alumno,
                     ':apellido' => $apellido_alumno,
                     ':fecha'    => $fecha_nacimiento,
@@ -85,40 +90,33 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     ':dui'      => $dui_padre
                 ]);
 
-                $res = $conexion->query("SELECT @p_id_out AS id, @p_msg_out AS mensaje")
-                                ->fetch(PDO::FETCH_ASSOC);
-                $stmt->closeCursor();
+                // Obtener el ID autoincrementable que se acaba de crear
+                $id_estudiante_nuevo = $conexion->lastInsertId();
 
-                if ($res['id'] > 0) {
-                    // Paso 2: Insertar matrícula directamente desde PHP
-                    try {
-                        $stmtMat = $conexion->prepare("
-                            INSERT INTO matricula (id_estudiante, id_grado, año_lectivo, estado, fecha_matricula, id_usuario_registra)
-                            VALUES (?, ?, YEAR(CURDATE()), 'activa', CURDATE(), ?)
-                        ");
-                        $resultado = $stmtMat->execute([
-                            $res['id'],
-                            $grado_seccion,
-                            $_SESSION['id_usuario'] // <-- Ahora usa el ID real de la persona logueada
-                        ]);
+                // Paso 2: Insertar en la tabla matricula
+                $sqlMatricula = "INSERT INTO matricula (
+                    id_estudiante, id_grado, año_lectivo, estado, fecha_matricula, id_usuario_registra
+                ) VALUES (
+                    ?, ?, YEAR(CURDATE()), 'activa', CURDATE(), ?
+                )";
+                
+                $stmtMat = $conexion->prepare($sqlMatricula);
+                $stmtMat->execute([
+                    $id_estudiante_nuevo,
+                    $grado_seccion,
+                    $_SESSION['id_usuario']
+                ]);
 
-                        if (!$resultado) {
-                            $errores[] = "Error al crear matrícula: " . implode(", ", $stmtMat->errorInfo());
-                        } else {
-                            $mensaje = "✅ " . $res['mensaje'];
-                            $tipo_alerta = "success";
-                        }
+                // Si todo sale bien, confirmamos los cambios en la base de datos
+                $conexion->commit();
 
-                    } catch (PDOException $e) {
-                        $errores[] = "Error al crear matrícula: " . $e->getMessage();
-                    }
-
-                } else {
-                    $errores[] = "Error BD: " . $res['mensaje'];
-                }
+                $mensaje = "✅ Estudiante registrado y matriculado exitosamente";
+                $tipo_alerta = "success";
 
             } catch (PDOException $e) {
-                $errores[] = "Error crítico del sistema: " . $e->getMessage();
+                // Si ocurre algún error en CUALQUIERA de los dos INSERTS, deshacemos todo
+                $conexion->rollBack();
+                $errores[] = "Error crítico en la base de datos: " . $e->getMessage();
             }
         } else {
             $errores[] = "No se pudo guardar el archivo en el servidor.";
