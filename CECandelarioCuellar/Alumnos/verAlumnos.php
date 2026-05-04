@@ -1,11 +1,11 @@
 <?php
 session_start();
-require_once '../config/conexion.php';
-
-/*if (!isset($_SESSION['id_usuario'])) {
+// Solo validar que exista una sesión activa
+if (!isset($_SESSION['id_usuario'])) {
     header("Location: ../auth/login.php");
     exit;
-}*/
+}
+require_once '../config/conexion.php';
 
 $estudiantes = [];
 $grados = [];
@@ -13,6 +13,8 @@ $mensaje_error = "";
 $mensaje_ok = "";
 $id_usuario_logueado = $_SESSION['id_usuario'] ?? 0;
 $rol_usuario = $_SESSION['rol'] ?? 'docente';
+$url_regresar = ($rol_usuario === 'administrador') ? '../dashboard/dashboardAdmin.php' : '../dashboard/dashboardProfesor.php';
+
 $ciclo_docente = null;
 $materia_docente = null;
 
@@ -40,6 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accion']) && $_POST['
         $telefono   = trim($_POST['telefono_padre_madre']);
         $dui        = trim($_POST['dui_padre_madre']);
         $id_grado   = $_POST['id_grado'];
+        $url_regresar = ($rol_usuario === 'administrador') ? '../dashboard/dashboardAdmin.php' : '../dashboard/dashboardProfesor.php';
 
         // Actualizar datos del estudiante
         $conexion->prepare("
@@ -155,15 +158,18 @@ try {
 <body>
 
 <nav class="navbar navbar-dark navbar-custom shadow-sm p-3">
-    <div class="container">
+   <div class="container">
         <span class="navbar-brand mb-0 h1 fw-bold">
             Centro Escolar Candelario Cuellar
         </span>
         <div class="d-flex align-items-center">
-            <span class="text-white me-3 d-none d-md-block small">
-                <?= htmlspecialchars($_SESSION['nombre_completo'] ?? 'Usuario') ?>
+            <span class="text-white me-3 d-none d-md-block small fw-bold">
+                <i class="bi bi-person-circle me-1"></i>
+                <?= htmlspecialchars(($_SESSION['rol'] === 'administrador') ? 'Administrador' : $_SESSION['nombre_completo']) ?>
             </span>
-            <a href="../auth/login.php" class="btn btn-outline-light btn-sm">Salir</a>
+            <a href="<?= $url_regresar ?>" class="btn btn-outline-light btn-sm">
+                <i class="bi bi-arrow-left"></i> Volver
+            </a>
         </div>
     </div>
 </nav>
@@ -242,7 +248,6 @@ try {
             <table class="table table-hover mb-0" id="tablaAlumnos">
                 <thead style="background-color: var(--color-azul-oscuro); color: white;">
                     <tr>
-                        <th class="ps-4">ID</th>
                         <th>Nombre del Estudiante</th>
                         <th>Grado</th>
                         <th>Fecha Nac.</th>
@@ -258,7 +263,6 @@ try {
                     <?php if (count($estudiantes) > 0): ?>
                         <?php foreach ($estudiantes as $estu): ?>
                             <tr data-grado="<?= htmlspecialchars($estu['id_grado']) ?>">
-                                <td class="ps-4 fw-bold"><?= htmlspecialchars($estu['id_estudiante']) ?></td>
                                 <td><?= htmlspecialchars($estu['nombre'] . ' ' . $estu['apellido']) ?></td>
                                 <td>
                                     <span class="badge badge-grado">
@@ -434,8 +438,8 @@ try {
     </div>
 </div>
 
-<footer class="text-center mt-5 p-4 bg-light">
-    <small style="color: var(--color-azul-claro);">© 2026 C.E. Candelario Cuellar - Todos los derechos reservados.</small>
+<footer class="text-center mt-5 p-4">
+    <small style="color:var(--color-azul-claro);">© 2026 C.E. Candelario Cuellar</small>
 </footer>
 
 <script>
@@ -466,8 +470,10 @@ function filtrarTabla() {
     let visibles = 0;
 
     filas.forEach(tr => {
-        const nombre    = tr.cells[1]?.textContent.toLowerCase() ?? "";
+        // CORRECCIÓN: El nombre está en la celda 0, no en la 1.
+        const nombre    = tr.cells[0]?.textContent.toLowerCase() ?? ""; 
         const gradoFila = tr.getAttribute("data-grado") ?? "";
+        
         const matchNombre = nombre.includes(input);
         const matchGrado  = grado === "" || gradoFila === grado;
 

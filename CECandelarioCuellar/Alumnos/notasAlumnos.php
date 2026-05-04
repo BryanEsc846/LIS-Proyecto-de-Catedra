@@ -1,11 +1,11 @@
 <?php
 session_start();
-require_once '../config/conexion.php';
-
-/*if (!isset($_SESSION['id_usuario'])) {
+// Validar que exista sesión y que sea docente
+if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'docente') {
     header("Location: ../auth/login.php");
     exit;
-}*/
+}
+require_once '../config/conexion.php';
 
 $id_usuario = $_SESSION['id_usuario'] ?? 0;
 $mensaje_ok = "";

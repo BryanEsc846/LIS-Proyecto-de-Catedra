@@ -1,13 +1,11 @@
-<?php 
-/*if (!isset($_SESSION['id_usuario'])) {
+<?php
+session_start();
+// Validar que exista sesión y que sea administrador
+if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'administrador') {
     header("Location: ../auth/login.php");
     exit;
-}*/
-
-
-//1. Agregar boton que redirija a una tabla donde se podrá asociar a cada profesor que se ha registrado con un grado y una materia
-//2. El boton de Horarios debera mostrar todos los horarios de los alumnos de cada grado
-//3. En el Listado de alumnos del admin poder dar de baja a alumnos
+}
+require_once '../config/conexion.php';
 ?>
 
 <!DOCTYPE html>
@@ -28,7 +26,7 @@
         <span class="navbar-brand mb-0 h1 fw-bold">
             Centro Escolar Candelario Cuellar
         </span>
-        <a href="../auth/login.php" class="btn btn-outline-light btn-sm">Salir</a>
+        <a href="../auth/logout.php" class="btn btn-outline-light btn-sm">Salir</a>
     </div>
 </nav>
 
@@ -46,15 +44,15 @@
                 <div class="icon-circle">📅</div>
                 <h4>Horarios</h4>
                 <p class="text-secondary small">Gestion de horarios de clases.</p>
-                <a href="../horarios/verHorarios.php" class="btn btn-principal w-100 mt-3">Gestionar</a>
+                <a href="../horarios/horariosAdmin.php" class="btn btn-principal w-100 mt-3">Ver Horarios</a>
             </div>
         </div>
 
         <div class="col-md-4">
             <div class="card card-menu shadow-sm p-4 text-center">
                 <div class="icon-circle">👩‍🏫</div>
-                <h4>Profesores</h4>
-                <p class="text-secondary small">Asignación de materias y grados.</p>
+                <h4>Docentes</h4>
+                <p class="text-secondary small">Asignación de materias y ciclo.</p>
                 <a href="../Docentes/gestionarDocentes.php" class="btn btn-principal w-100 mt-3">Gestionar</a>
             </div>
         </div>
@@ -62,8 +60,8 @@
         <div class="col-md-4">
             <div class="card card-menu shadow-sm p-4 text-center">
                 <div class="icon-circle">📊</div>
-                <h4>Ver Listados</h4>
-                <p class="text-secondary small">Visualización de asistencia y notas.</p>
+                <h4>Alumnos</h4>
+                <p class="text-secondary small">Visualización de datos de los alumnos e Inscripciones.</p>
                 <a href="../Alumnos/verAlumnos.php" class="btn btn-principal w-100 mt-3">Ver Reportes</a>
             </div>
         </div>

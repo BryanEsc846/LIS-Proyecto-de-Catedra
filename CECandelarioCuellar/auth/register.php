@@ -1,12 +1,14 @@
 <?php
 // Archivo para registrar nuevos usuarios de rol docente
-
 require_once '../config/conexion.php';
 
+$mensaje_exito = '';
+$mensaje_error = '';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $nombre = $_POST['nombre'] ?? '';
-    $apellido = $_POST['apellido'] ?? '';
-    $email = $_POST['email'] ?? '';
+    $nombre = trim($_POST['nombre'] ?? '');
+    $apellido = trim($_POST['apellido'] ?? '');
+    $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
 
     if ($nombre && $apellido && $email && $password) {
@@ -24,12 +26,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':password_hash' => $passwordHash
             ]);
 
-            echo "<div class='alert alert-success'>Usuario docente registrado exitosamente.</div>";
+            $mensaje_exito = "Usuario docente registrado exitosamente.";
         } catch (PDOException $e) {
-            echo "<div class='alert alert-danger'>Error al registrar el usuario: " . htmlspecialchars($e->getMessage()) . "</div>";
+            $mensaje_error = "Error al registrar el usuario: " . htmlspecialchars($e->getMessage());
         }
     } else {
-        echo "<div class='alert alert-warning'>Por favor, complete todos los campos.</div>";
+        $mensaje_error = "Por favor, complete todos los campos requeridos.";
     }
 }
 ?>
@@ -41,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Registrar Docente</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/disenos.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 </head>
 <body class="bg-light">
 <div class="container d-flex align-items-center justify-content-center" style="min-height: 100vh;">
@@ -51,6 +54,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <small class="text-white-50">Centro Escolar Candelario Cuellar</small>
             </div>
             <div class="card-body p-4">
+                
+                <?php if ($mensaje_exito): ?>
+                    <div class="alert alert-success shadow-sm small" role="alert">
+                        <i class="bi bi-check-circle-fill me-2"></i><?= $mensaje_exito ?>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($mensaje_error): ?>
+                    <div class="alert alert-danger shadow-sm small" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i><?= $mensaje_error ?>
+                    </div>
+                <?php endif; ?>
                 <form method="POST" action="">
                     <div class="mb-3">
                         <label class="form-label fw-bold text-secondary">Nombre</label>
@@ -87,6 +102,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <button type="submit" class="btn btn-primary w-100 py-2 fw-bold shadow-sm" style="background-color: var(--color-azul-oscuro, #0d6efd); border:none;">
                         REGISTRAR
                     </button>
+                    
+                    <div class="text-center mt-3">
+                        <a href="login.php" class="text-decoration-none small text-muted">¿Ya tienes cuenta? Ingresa aquí.</a>
+                    </div>
                 </form>
             </div>
             <div class="card-footer text-center bg-white border-0 pb-3">
