@@ -1,8 +1,11 @@
-<?php 
-if (!isset($_SESSION['id_usuario'])) {
+<?php
+session_start();
+// Validar que exista sesión y que sea docente
+if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'docente') {
     header("Location: ../auth/login.php");
     exit;
 }
+require_once '../config/conexion.php';
 ?>
 
 <!DOCTYPE html>
@@ -25,7 +28,7 @@ if (!isset($_SESSION['id_usuario'])) {
             <span class="text-white me-3 d-none d-md-block small">
                 <?= htmlspecialchars($_SESSION['nombre_completo'] ?? 'Docente') ?>
             </span>
-            <a href="../auth/login.php" class="btn btn-outline-light btn-sm">Salir</a>
+            <a href="../auth/logout.php" class="btn btn-outline-light btn-sm">Salir</a>
         </div>
     </div>
 </nav>

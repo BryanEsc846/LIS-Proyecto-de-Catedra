@@ -1,6 +1,17 @@
 <?php
 // auth/login.php
 session_start();
+
+// Si ya hay sesión, mandarlo a su dashboard correspondiente
+if (isset($_SESSION['id_usuario'])) {
+    if ($_SESSION['rol'] === 'administrador') {
+        header("Location: ../dashboard/dashboardAdmin.php");
+    } else {
+        header("Location: ../dashboard/dashboardProfesor.php");
+    }
+    exit;
+}
+
 require_once '../config/conexion.php';
 
 error_reporting(E_ALL);

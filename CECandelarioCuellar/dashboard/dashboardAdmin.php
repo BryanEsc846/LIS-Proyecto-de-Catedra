@@ -1,9 +1,11 @@
-<?php 
-if (!isset($_SESSION['id_usuario'])) {
+<?php
+session_start();
+// Validar que exista sesión y que sea administrador
+if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'administrador') {
     header("Location: ../auth/login.php");
     exit;
 }
-
+require_once '../config/conexion.php';
 ?>
 
 <!DOCTYPE html>
@@ -24,7 +26,7 @@ if (!isset($_SESSION['id_usuario'])) {
         <span class="navbar-brand mb-0 h1 fw-bold">
             Centro Escolar Candelario Cuellar
         </span>
-        <a href="../auth/login.php" class="btn btn-outline-light btn-sm">Salir</a>
+        <a href="../auth/logout.php" class="btn btn-outline-light btn-sm">Salir</a>
     </div>
 </nav>
 

@@ -129,21 +129,6 @@ CREATE TABLE `horario_detalle` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------
--- Tabla: asistencia
--- ------------------------------------------------------
-CREATE TABLE `asistencia` (
-  `id_asistencia` int NOT NULL AUTO_INCREMENT,
-  `id_matricula` int NOT NULL,
-  `id_detalle` int NOT NULL,
-  `fecha` date NOT NULL,
-  `estado` enum('presente','ausente','tardanza','justificado') NOT NULL,
-  `observacion` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id_asistencia`),
-  CONSTRAINT `fk_asis_detalle` FOREIGN KEY (`id_detalle`) REFERENCES `horario_detalle` (`id_detalle`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_asis_matricula` FOREIGN KEY (`id_matricula`) REFERENCES `matricula` (`id_matricula`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ------------------------------------------------------
 -- Tabla: calificacion
 -- ------------------------------------------------------
 

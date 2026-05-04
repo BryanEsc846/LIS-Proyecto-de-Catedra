@@ -1,11 +1,12 @@
 <?php
 session_start();
-require_once '../config/conexion.php';
-
+// Validar que exista sesión y que sea administrador
 if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'administrador') {
     header("Location: ../auth/login.php");
     exit;
 }
+require_once '../config/conexion.php';
+
 
 // -------------------------------------------------------
 // Plantillas Semanales Optimizadas (Matriz Anti-Colisiones)

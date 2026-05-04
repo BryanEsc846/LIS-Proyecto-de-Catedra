@@ -2,10 +2,15 @@
 session_start();
 require_once '../config/conexion.php';
 
+// Validar solo que exista sesión activa (permitiendo a ambos roles)
 if (!isset($_SESSION['id_usuario'])) {
     header("Location: ../auth/login.php");
     exit;
 }
+
+// Variables dinámicas según el rol
+$rol_usuario = $_SESSION['rol'] ?? '';
+$url_regresar = ($rol_usuario === 'administrador') ? '../dashboard/dashboardAdmin.php' : '../dashboard/dashboardProfesor.php';
 
 $mensaje = "";
 $tipo_alerta = "";
@@ -94,7 +99,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         $resultado = $stmtMat->execute([
                             $res['id'],
                             $grado_seccion,
-                            1  // Admin por defecto mientras la sesión está comentada
+                            $_SESSION['id_usuario'] // <-- Ahora usa el ID real de la persona logueada
                         ]);
 
                         if (!$resultado) {
@@ -154,10 +159,13 @@ try {
             Centro Escolar Candelario Cuellar
         </span>
         <div class="d-flex align-items-center">
-            <span class="text-white me-3 d-none d-md-block small">
-                <?= htmlspecialchars($_SESSION['nombre_completo'] ?? 'Admin') ?>
+            <span class="text-white me-3 d-none d-md-block small fw-bold">
+                <i class="bi bi-person-circle me-1"></i>
+                <?= htmlspecialchars(($_SESSION['rol'] === 'administrador') ? 'Administrador' : $_SESSION['nombre_completo']) ?>
             </span>
-            <a href="../auth/logout.php" class="btn btn-outline-light btn-sm">Salir</a>
+            <a href="<?= $url_regresar ?>" class="btn btn-outline-light btn-sm">
+                <i class="bi bi-arrow-left"></i> Volver
+            </a>
         </div>
     </div>
 </nav>
@@ -208,7 +216,7 @@ try {
                         <div class="col-md-4">
                             <label class="form-label fw-bold">Fecha de Nacimiento</label>
                             <input type="date" name="fecha_nacimiento" class="form-control" required
-                                   value="<?= $_POST['fecha_nacimiento'] ?? '' ?>">
+                                   value="<?= htmlspecialchars($_POST['fecha_nacimiento'] ?? '') ?>">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label fw-bold">Grado a Cursar</label>
@@ -257,7 +265,7 @@ try {
                     </div>
 
                     <div class="d-flex flex-column flex-sm-row gap-3 justify-content-center mt-4">
-                        <a href="../dashboard/dashboardAdmin.php"
+                        <a href="<?= $url_regresar ?>"
                            class="btn btn-outline-secondary btn-lg px-4 py-2 w-100 w-sm-auto text-center">
                             <i class="bi bi-arrow-left me-2"></i>Regresar
                         </a>
