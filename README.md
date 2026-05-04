@@ -1,64 +1,79 @@
-# LIS-Proyecto-de-Catedra
-Repositorio para gestionar el backend del proyecto de catedra
-### 1- Cargar el script de la base de datos en myphpadmin
-### 2- Ingresar en la tabla "usuario" un usuario con el rol de administrador. Para la contraseña utilizar la funcion password_hash()funcion de php que se encuentra en el desplegable de funciones
-### 3- Ingresar al login (de la carpeta auth) desde el apache de xampp con los datos que ingreso en la base de datos.
-### 4- Registre a un estudiante 
+# 🏫 Sistema de Gestión Escolar - C.E. Candelario Cuellar
 
-# Guía de Despliegue: Aplicación Web PHP en Kubernetes
+Este repositorio contiene el código fuente del **Sistema de Gestión Escolar** desarrollado para el Centro Escolar Candelario Cuellar. Es una plataforma web diseñada para agilizar y digitalizar los procesos administrativos y académicos de la institución.
 
-## Requisitos Previos
-
-Antes de comenzar, asegúrate de tener instaladas las siguientes herramientas:
-* **Docker Desktop:** Activo y ejecutándose.
-* **Kind:** Para la creación del clúster multinodo local.
-* **kubectl:** Herramienta de línea de comandos para interactuar con el clúster.
+🌍 **Sitio web en vivo (Demo):** [ce-candelariocuellar.rf.gd](http://ce-candelariocuellar.rf.gd)
 
 ---
 
-## Pasos de Ejecución
+## 🚀 Características Principales
 
-### 1. Empaquetar la Aplicación (Docker)
-Construye la imagen de Docker a partir del código fuente y el `Dockerfile` ubicado en la raíz del proyecto.
+El sistema está compuesto por los siguientes módulos transaccionales:
 
+* **Autenticación y Seguridad:** Control de acceso mediante roles (Administrador y Docente) con contraseñas encriptadas (bcrypt).
+* **Gestión de Matrícula:** Registro de alumnos, asignación a grados y almacenamiento seguro de documentos (Partidas de Nacimiento en PDF/Imagen).
+* **Gestión Académica:** Administración de personal docente, grados académicos (1° a 9°) y materias.
+* **Gestión de Horarios:** Creación y visualización de matrices de horarios escolares.
+* **Registro de Calificaciones:** Consolidación de notas por trimestre (actividades y exámenes) con cálculo automático de promedios.
+
+---
+
+## 💻 Tecnologías Utilizadas
+
+El proyecto fue desarrollado utilizando el siguiente stack tecnológico:
+
+* **Backend:** PHP 8.0.30
+* **Base de Datos:** MySQL (Cliente libmysql - mysqlnd 8.0.30)
+* **Gestor de BD:** phpMyAdmin
+* **Servidor Web:** Apache/2.4.58 (Win64) con soporte OpenSSL/3.1.3
+* **Frontend:** HTML5, CSS3, Bootstrap 5.3.2
+* **Arquitectura:** Programación Estructurada (vistas) y Programación Orientada a Objetos (gestión de base de datos con PDO y Transacciones).
+
+---
+
+## ⚙️ Requisitos Previos
+
+Para ejecutar este proyecto en un entorno local, necesitarás:
+
+1.  Un entorno de servidor local como **XAMPP**, **WAMP** o **Laragon**.
+2.  PHP versión 8.0 o superior.
+3.  Servidor MySQL activo.
+4.  Git instalado en tu equipo.
+
+---
+
+## 🛠️ Instalación y Configuración Local
+
+Sigue estos pasos para desplegar el proyecto en tu máquina local:
+
+## 1. Clonar el repositorio
+Abre tu terminal, dirígete a la carpeta pública de tu servidor local (ej. `htdocs` en XAMPP o `www` en WAMP) y clona el proyecto:
 ```bash
-docker build -t imagen_proyecto_catedra:latest .
+git clone [https://github.com/BryanEsc846/LIS-Proyecto-de-Catedra.git](https://github.com/BryanEsc846/LIS-Proyecto-de-Catedra.git) CECandelarioCuellar
 ```
 
-### 2. Crear el Clúster Multinodo (Kind)
-Crea un clúster local con múltiples nodos (1 maestro, 2 trabajadores) para garantizar la alta disponibilidad y la distribución de réplicas.
+## 2. Configurar la Base de Datos
 
-```bash
-kind create cluster --config kind-config.yaml --name proyecto-catedra
-```
+Abre phpMyAdmin en tu navegador (usualmente http://localhost/phpmyadmin).
 
-### 3. Cargar la Imagen al Clúster
-Inyecta la imagen de Docker recién creada directamente en los nodos del clúster para que esté disponible localmente.
+Crea una nueva base de datos llamada **c.e.c.c** (con cotejamiento `utf8mb4_unicode_ci`).
 
-```bash
-kind load docker-image imagen_proyecto_catedra:latest --name proyecto-catedra
-```
-### 4. Configurar el Servidor de Métricas (Requisito para HPA)
-Para que el Autoescalador Horizontal (HPA) funcione, es necesario habilitar la recolección de métricas de CPU y aplicar un parche de seguridad.
+Ve a la pestaña **Importar** y selecciona el archivo principal de la base de datos ubicado en la carpeta del proyecto: /database/base.sql
 
-```bash
-# Instalar el Metrics Server
-kubectl apply -f [https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml](https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml)
 
-# Aplicar parche para ignorar certificados TLS locales
-kubectl patch deployment metrics-server -n kube-system --type=json --patch-file parche.json
-```
+**(Opcional)** Si deseas datos de prueba adicionales, puedes importar luego:
 
-### 5. Desplegar la Infraestructura en Kubernetes
-Aplica el archivo de configuración maestro que contiene el Deployment, el Service (LoadBalancer) y el HorizontalPodAutoscaler.
+- `alumnos.sql`
+- `maestros.sql`
 
-```bash
-kubectl apply -f k8s-config.yaml
-```
+---
 
-### 6. Exponer la Aplicación (Port-Forward)
-Abre un puente de red para conectar el balanceador de carga del clúster con tu entorno local. **Este comando debe mantenerse en ejecución en la terminal.**
+## 3. Configurar la conexión
 
-```bash
-kubectl port-forward service/php-app-loadbalancer 8080:80
-```
+Asegúrate de que las credenciales de conexión a la base de datos coincidan con tu entorno local. Revisa el archivo: /config/conexion.php
+
+```php
+$host = 'localhost';
+$db   = 'c.e.c.c';
+$user = 'root'; // Tu usuario de MySQL
+$pass = '';     // Tu contraseña de MySQL
