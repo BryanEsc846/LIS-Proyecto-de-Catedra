@@ -1,20 +1,25 @@
 <?php
 // config/conexion.php
 
-try {
-    // Creamos la variable $conexion
-    $conexion = new PDO(
-        "mysql:host=localhost;port=3306;dbname=c.e.c.c;charset=utf8mb4", // Asegúrate que el nombre de la BD sea 'sigaa_web' como en tu SQL
-        "root",
-        ""
-    );
+$host = 'sql110.infinityfree.com';        // ← Tu Database Hostname
+$dbname = 'if0_41822307_c_e_c_c';         // ← Full Database Name
+$user = 'if0_41822307';                   // ← Database Username
+$pass = 'flFzIPNa0ct0Rph';                 // ← Database Password
 
-    // Configuramos errores y modo de fetch
+try {
+    $conexion = new PDO(
+        "mysql:host={$host};dbname={$dbname};charset=utf8mb4",
+        $user,
+        $pass
+    );
+    
     $conexion->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $conexion->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+
 } catch (PDOException $e) {
-    // Si falla la conexión, redirigimos a la página de error
-    // Usamos una ruta absoluta relativa al dominio para evitar errores de '../'
-    header("Location: /CECandelarioCuellar/errores/500.php");
+    // En hosting gratuito es mejor no mostrar errores internos
+    error_log("DB Error: " . $e->getMessage());
+    header("Location: ../errores/500.php");
     exit;
 }
+?>
