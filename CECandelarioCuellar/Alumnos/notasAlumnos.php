@@ -2,10 +2,10 @@
 session_start();
 require_once '../config/conexion.php';
 
-/*if (!isset($_SESSION['id_usuario'])) {
+if (!isset($_SESSION['id_usuario'])) {
     header("Location: ../auth/login.php");
     exit;
-}*/
+}
 
 $id_usuario = $_SESSION['id_usuario'] ?? 0;
 $mensaje_ok = "";

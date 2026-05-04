@@ -2,10 +2,10 @@
 session_start();
 require_once '../config/conexion.php';
 
-/*if (!isset($_SESSION['id_usuario'])) {
+if (!isset($_SESSION['id_usuario'])) {
     header("Location: ../auth/login.php");
     exit;
-}*/
+}
 
 $estudiantes = [];
 $grados = [];
@@ -242,7 +242,6 @@ try {
             <table class="table table-hover mb-0" id="tablaAlumnos">
                 <thead style="background-color: var(--color-azul-oscuro); color: white;">
                     <tr>
-                        <th class="ps-4">ID</th>
                         <th>Nombre del Estudiante</th>
                         <th>Grado</th>
                         <th>Fecha Nac.</th>
@@ -258,7 +257,6 @@ try {
                     <?php if (count($estudiantes) > 0): ?>
                         <?php foreach ($estudiantes as $estu): ?>
                             <tr data-grado="<?= htmlspecialchars($estu['id_grado']) ?>">
-                                <td class="ps-4 fw-bold"><?= htmlspecialchars($estu['id_estudiante']) ?></td>
                                 <td><?= htmlspecialchars($estu['nombre'] . ' ' . $estu['apellido']) ?></td>
                                 <td>
                                     <span class="badge badge-grado">
@@ -434,8 +432,8 @@ try {
     </div>
 </div>
 
-<footer class="text-center mt-5 p-4 bg-light">
-    <small style="color: var(--color-azul-claro);">© 2026 C.E. Candelario Cuellar - Todos los derechos reservados.</small>
+<footer class="text-center mt-5 p-4">
+    <small style="color:var(--color-azul-claro);">© 2026 C.E. Candelario Cuellar</small>
 </footer>
 
 <script>
@@ -466,8 +464,10 @@ function filtrarTabla() {
     let visibles = 0;
 
     filas.forEach(tr => {
-        const nombre    = tr.cells[1]?.textContent.toLowerCase() ?? "";
+        // CORRECCIÓN: El nombre está en la celda 0, no en la 1.
+        const nombre    = tr.cells[0]?.textContent.toLowerCase() ?? ""; 
         const gradoFila = tr.getAttribute("data-grado") ?? "";
+        
         const matchNombre = nombre.includes(input);
         const matchGrado  = grado === "" || gradoFila === grado;
 

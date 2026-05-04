@@ -2,56 +2,87 @@
 session_start();
 require_once '../config/conexion.php';
 
-/*if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'administrador') {
+if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'administrador') {
     header("Location: ../auth/login.php");
     exit;
-}*/
+}
 
 // -------------------------------------------------------
-// Bloques de 2 horas clase por franja
-// Distribución semanal: MAT=6h, LYL=6h, CYV=6h, CYT=6h → 3 bloques c/u
-//                        ING=4h → 2 bloques, EDF=2h → 1 bloque
-// 3 bloques/día × 5 días = 15 bloques = (3+3+3+3+2+1) ✓
-//
-// Plantillas de día (5 rotaciones, 3 materias c/u).
-// Para el grado con offset k, en el día d se usa template[(d+k)%5].
+// Plantillas Semanales Optimizadas (Matriz Anti-Colisiones)
+// Diseñadas para que los offsets 0 al 4 encajen perfectamente
+// sin que un mismo docente choque, soportando hasta 5 secciones.
 // -------------------------------------------------------
-$DAY_TEMPLATES = [
-    0 => ['MAT','LYL','CYV'], // base Lunes
-    1 => ['CYT','ING','MAT'], // base Martes
-    2 => ['LYL','CYV','CYT'], // base Miércoles
-    3 => ['ING','MAT','LYL'], // base Jueves
-    4 => ['CYV','CYT','EDF'], // base Viernes
+$WEEKLY_TEMPLATES = [
+    0 => [ // Rotación 0
+        ['MAT', 'LYL', 'CYV'], // Lunes
+        ['CYT', 'MAT', 'LYL'], // Martes
+        ['CYV', 'ING', 'MAT'], // Miércoles
+        ['LYL', 'CYT', 'ING'], // Jueves
+        ['EDF', 'CYV', 'CYT']  // Viernes
+    ],
+    1 => [ // Rotación 1
+        ['ING', 'MAT', 'LYL'], // Lunes
+        ['CYV', 'ING', 'MAT'], // Martes
+        ['LYL', 'CYT', 'EDF'], // Miércoles
+        ['MAT', 'CYV', 'CYT'], // Jueves
+        ['CYT', 'LYL', 'CYV']  // Viernes
+    ],
+    2 => [ // Rotación 2
+        ['CYT', 'ING', 'MAT'], // Lunes
+        ['LYL', 'CYT', 'ING'], // Martes
+        ['MAT', 'CYV', 'CYT'], // Miércoles
+        ['EDF', 'LYL', 'CYV'], // Jueves
+        ['CYV', 'MAT', 'LYL']  // Viernes
+    ],
+    3 => [ // Rotación 3
+        ['CYV', 'CYT', 'ING'], // Lunes
+        ['MAT', 'CYV', 'CYT'], // Martes
+        ['ING', 'LYL', 'CYV'], // Miércoles
+        ['CYT', 'MAT', 'LYL'], // Jueves
+        ['LYL', 'EDF', 'MAT']  // Viernes
+    ],
+    4 => [ // Rotación 4
+        ['LYL', 'CYV', 'CYT'], // Lunes
+        ['ING', 'LYL', 'CYV'], // Martes
+        ['CYT', 'MAT', 'LYL'], // Miércoles
+        ['CYV', 'ING', 'MAT'], // Jueves
+        ['MAT', 'CYT', 'EDF']  // Viernes
+    ],
+    5 => [ // Rotación 5 (¡NUEVA! Perfectamente encajada con la 3 y 4)
+        ['ING', 'MAT', 'CYV'], // Lunes
+        ['CYV', 'MAT', 'LYL'], // Martes
+        ['MAT', 'CYT', 'ING'], // Miércoles
+        ['LYL', 'CYV', 'CYT'], // Jueves
+        ['EDF', 'LYL', 'CYT']  // Viernes
+    ]
 ];
 
 // Cada bloque ocupa 2 períodos consecutivos (2 horas)
 $TIME_SLOTS = [
-    ['07:10:00','08:30:00'], // Bloque 1 (7:10 – 8:30)
-    ['08:50:00','10:10:00'], // Bloque 2 (8:50 – 10:10)
-    ['10:30:00','11:50:00'], // Bloque 3 (10:30 – 11:50)
+    ['07:10:00','08:30:00'], // Bloque 1
+    ['08:50:00','10:10:00'], // Bloque 2
+    ['10:30:00','11:50:00'], // Bloque 3
 ];
 
 $DIAS_SEMANA = ['Lunes','Martes','Miercoles','Jueves','Viernes'];
 
-// Offset de rotación por grado dentro del ciclo (0-4)
+// Offset de rotación por grado dentro del ciclo (0-5)
 $GRADE_OFFSETS = [
-    '1° "A"'=>0,'1° "B"'=>1,'2° "A"'=>2,'2° "B"'=>3,'3° "A"'=>4,'3° "B"'=>1,
-    '4° "A"'=>0,'4° "B"'=>1,'5° "A"'=>2,'5° "B"'=>3,'6° "A"'=>4,'6° "B"'=>2,
-    '7° "A"'=>0,'7° "B"'=>1,'8° "A"'=>2,'8° "B"'=>3,'9° "A"'=>4,'9° "B"'=>3,
+    '1° "A"'=>0,'1° "B"'=>1,'2° "A"'=>2,'2° "B"'=>3,'3° "A"'=>4,'3° "B"'=>5,
+    '4° "A"'=>0,'4° "B"'=>1,'5° "A"'=>2,'5° "B"'=>3,'6° "A"'=>4,'6° "B"'=>5,
+    '7° "A"'=>0,'7° "B"'=>1,'8° "A"'=>2,'8° "B"'=>3,'9° "A"'=>4,'9° "B"'=>5,
 ];
 
 // -------------------------------------------------------
-// Función de generación
+// Función de generación ultrarrápida
 // -------------------------------------------------------
-function generarTodosLosHorarios($conexion, $DAY_TEMPLATES, $TIME_SLOTS, $DIAS_SEMANA, $GRADE_OFFSETS) {
+function generarTodosLosHorarios($conexion, $WEEKLY_TEMPLATES, $TIME_SLOTS, $DIAS_SEMANA, $GRADE_OFFSETS) {
     $anio = date('Y');
 
-    // Eliminar horarios existentes del año (CASCADE borra horario_detalle)
+    // Eliminar horarios existentes del año
     $conexion->prepare("DELETE FROM horario WHERE año_lectivo = ?")->execute([$anio]);
 
-    $stmtHorario  = $conexion->prepare(
-        "INSERT INTO horario (id_grado, año_lectivo, generado_auto) VALUES (?, ?, 1)"
-    );
+    $stmtHorario  = $conexion->prepare("INSERT INTO horario (id_grado, año_lectivo, generado_auto) VALUES (?, ?, 1)");
     $stmtDetalle  = $conexion->prepare(
         "INSERT INTO horario_detalle (id_horario, id_materia, id_usuario, dia_semana, hora_inicio, hora_fin)
          VALUES (?, ?, ?, ?, ?, ?)"
@@ -62,6 +93,16 @@ function generarTodosLosHorarios($conexion, $DAY_TEMPLATES, $TIME_SLOTS, $DIAS_S
          LIMIT 1"
     );
 
+    // Red de seguridad (Validador de cruces)
+    $stmtVerificarGlobal = $conexion->prepare(
+        "SELECT COUNT(*) as count FROM horario_detalle hd
+         JOIN horario h ON hd.id_horario = h.id_horario
+         WHERE hd.dia_semana = ? 
+           AND hd.hora_inicio = ?
+           AND hd.id_usuario = ?
+           AND h.año_lectivo = ?"
+    );
+
     $errores = [];
     $exitosos = 0;
 
@@ -70,21 +111,33 @@ function generarTodosLosHorarios($conexion, $DAY_TEMPLATES, $TIME_SLOTS, $DIAS_S
         $id_horario = $conexion->lastInsertId();
         $insertados  = 0;
 
-        for ($d = 0; $d < 5; $d++) {
-            $tpl_idx  = ($d + $offset) % 5;
-            $materias = $DAY_TEMPLATES[$tpl_idx];
+        for ($d = 0; $d < count($DIAS_SEMANA); $d++) {
+            $materias = $WEEKLY_TEMPLATES[$offset][$d];
 
-            for ($p = 0; $p < 3; $p++) {
+            for ($p = 0; $p < count($TIME_SLOTS); $p++) {
                 $id_materia = $materias[$p];
 
                 $stmtDocente->execute([$id_grado, $id_materia, $anio]);
                 $docente = $stmtDocente->fetch();
 
                 if (!$docente) {
-                    $errores[] = "Sin docente: <strong>{$id_grado}</strong> — {$id_materia}";
+                    $errores[] = "Falta asignar docente a la materia <strong>{$id_materia}</strong> en <strong>{$id_grado}</strong>.";
                     continue;
                 }
 
+                $stmtVerificarGlobal->execute([
+                    $DIAS_SEMANA[$d],
+                    $TIME_SLOTS[$p][0],
+                    $docente['id_usuario'],
+                    $anio
+                ]);
+                
+                if ($stmtVerificarGlobal->fetchColumn() > 0) {
+                    $errores[] = "Cruce evitado: El docente de {$id_materia} ya da clases el {$DIAS_SEMANA[$d]} de {$TIME_SLOTS[$p][0]}.";
+                    continue;
+                }
+
+                // Insertar el horario final
                 $stmtDetalle->execute([
                     $id_horario,
                     $id_materia,
@@ -96,7 +149,7 @@ function generarTodosLosHorarios($conexion, $DAY_TEMPLATES, $TIME_SLOTS, $DIAS_S
                 $insertados++;
             }
         }
-        if ($insertados > 0) $exitosos++;
+        if ($insertados == 15) $exitosos++;
     }
 
     return ['exitosos' => $exitosos, 'errores' => array_unique($errores)];
@@ -108,7 +161,7 @@ function generarTodosLosHorarios($conexion, $DAY_TEMPLATES, $TIME_SLOTS, $DIAS_S
 $resultado = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generar'])) {
     $resultado = generarTodosLosHorarios(
-        $conexion, $DAY_TEMPLATES, $TIME_SLOTS, $DIAS_SEMANA, $GRADE_OFFSETS
+        $conexion, $WEEKLY_TEMPLATES, $TIME_SLOTS, $DIAS_SEMANA, $GRADE_OFFSETS
     );
 }
 
@@ -130,20 +183,16 @@ $estado_grados = $conexion->prepare("
 $estado_grados->execute([$anio_actual]);
 $grados_estado = $estado_grados->fetchAll();
 
-// Contadores de resumen
-$con_horario    = count(array_filter($grados_estado, fn($r) => $r['id_horario']));
-$sin_horario    = count($grados_estado) - $con_horario;
+$con_horario = count(array_filter($grados_estado, fn($r) => $r['id_horario'] && $r['total_clases'] == 15));
+$sin_horario = count($grados_estado) - $con_horario;
 
-// Docentes sin asignación
 $docentes_sin_asig = $conexion->query("
-    SELECT u.nombre, u.apellido
-    FROM usuario u
+    SELECT u.nombre, u.apellido FROM usuario u
     WHERE u.rol = 'docente' AND u.activo = 1
-      AND u.id_usuario NOT IN (
-          SELECT DISTINCT id_usuario FROM asignacion_docente WHERE año_lectivo = YEAR(CURDATE())
-      )
+    AND u.id_usuario NOT IN (SELECT DISTINCT id_usuario FROM asignacion_docente WHERE año_lectivo = YEAR(CURDATE()))
 ")->fetchAll();
 ?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -186,7 +235,7 @@ $docentes_sin_asig = $conexion->query("
         <strong><?= $resultado['exitosos'] ?> grados</strong> procesados correctamente.
         <?php if (!empty($resultado['errores'])): ?>
             <hr>
-            <p class="mb-1"><strong>Advertencias (docentes no asignados):</strong></p>
+            <p class="mb-1"><strong>Advertencias:</strong></p>
             <ul class="mb-0 small">
                 <?php foreach ($resultado['errores'] as $err): ?>
                     <li><?= $err ?></li>
@@ -197,7 +246,6 @@ $docentes_sin_asig = $conexion->query("
     </div>
     <?php endif; ?>
 
-    <!-- Tarjetas de resumen -->
     <div class="row g-3 mb-4">
         <div class="col-md-4">
             <div class="card card-stat shadow-sm p-3">
@@ -240,11 +288,9 @@ $docentes_sin_asig = $conexion->query("
         <strong>Docentes sin asignación de ciclo/materia:</strong>
         <?= implode(', ', array_map(fn($d) => htmlspecialchars($d['nombre'].' '.$d['apellido']), $docentes_sin_asig)) ?>.
         El horario de los grados cubiertos por estos docentes quedará incompleto.
-        <a href="../Docentes/gestionarDocentes.php" class="alert-link ms-2">Ir a Gestión de Docentes →</a>
     </div>
     <?php endif; ?>
 
-    <!-- Botón de generación -->
     <div class="card shadow-sm mb-4">
         <div class="card-body text-center py-4">
             <h5 class="fw-bold mb-2">
@@ -253,18 +299,43 @@ $docentes_sin_asig = $conexion->query("
             <p class="text-muted small mb-3">
                 Se eliminarán los horarios actuales del año <?= $anio_actual ?> y se generarán nuevos
                 basados en las asignaciones de docentes registradas.<br>
-                <strong>Estructura:</strong> 3 bloques de 2 horas por día &nbsp;|&nbsp;
-                MAT, LYL, CYV, CYT → 6 h/semana &nbsp;|&nbsp; ING → 4 h/semana &nbsp;|&nbsp; EDF → 2 h/semana.
+                <strong>Estructura:</strong> 3 bloques de 2 horas por día. Motor Ultra-Rápido activado.
             </p>
-            <form method="POST" onsubmit="return confirm('¿Confirmar generación de horarios? Se borrarán los horarios actuales del año <?= $anio_actual ?>.');">
-                <button type="submit" name="generar" class="btn btn-principal btn-lg px-5">
-                    <i class="bi bi-lightning-fill me-2"></i>Generar Horarios Ahora
-                </button>
-            </form>
+            
+            <button type="button" class="btn btn-principal btn-lg px-5" data-bs-toggle="modal" data-bs-target="#modalConfirmarGenerar">
+                <i class="bi bi-lightning-fill me-2"></i>Generar Horarios Ahora
+            </button>
         </div>
     </div>
 
-    <!-- Estado por grado -->
+    <div class="modal fade" id="modalConfirmarGenerar" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title text-dark fw-bold">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Confirmar Acción
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center py-4">
+                    <i class="bi bi-calendar-x text-warning" style="font-size: 3.5rem;"></i>
+                    <p class="mt-3 fs-5 fw-bold" style="color: var(--color-azul-oscuro);">¿Generar nuevos horarios?</p>
+                    <p class="text-muted small px-3">
+                        Esta acción borrará los horarios actuales del año <strong><?= $anio_actual ?></strong> y los volverá a calcular desde cero.
+                    </p>
+                </div>
+                <div class="modal-footer justify-content-center border-0 mb-2">
+                    <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <form method="POST" class="m-0">
+                        <button type="submit" name="generar" class="btn btn-principal px-4">
+                            <i class="bi bi-check-circle-fill me-1"></i> Sí, Generar
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="card shadow-sm">
         <div class="card-header" style="background-color: var(--color-azul-oscuro); color:white;">
             <i class="bi bi-table me-2"></i>Estado por grado — Año <?= $anio_actual ?>

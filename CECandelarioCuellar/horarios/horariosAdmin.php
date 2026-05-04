@@ -2,10 +2,10 @@
 session_start();
 require_once '../config/conexion.php';
 
-/*if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'administrador') {
+if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'administrador') {
     header("Location: ../auth/login.php");
     exit;
-}*/
+}
 
 $anio_actual = date('Y');
 

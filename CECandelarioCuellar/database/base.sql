@@ -222,3 +222,13 @@ BEGIN
 END //
 
 DELIMITER ;
+
+
+-- ------------------------------------------------------
+-- Insertar el administrador
+-- ------------------------------------------------------
+INSERT INTO `usuario` (`nombre`, `apellido`, `email`, `password_hash`, `rol`, `activo`) VALUES
+('Admin',   'Admin',   'admin@cecc.edu.sv', '$2y$10$hcVvnwgGawxRt4LQu/Xsn.RXu42nwSSKwGHcsvuIDZZSFfWQbD0wK', 'administrador', 1);
+
+
+

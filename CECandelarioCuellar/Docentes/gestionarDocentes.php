@@ -2,10 +2,10 @@
 session_start();
 require_once '../config/conexion.php';
 
-/*if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'administrador') {
+if (!isset($_SESSION['id_usuario']) || $_SESSION['rol'] !== 'administrador') {
     header("Location: ../auth/login.php");
     exit;
-}*/
+}
 
 $ciclos = [
     'Primer Ciclo'  => ['1° "A"','1° "B"','2° "A"','2° "B"','3° "A"','3° "B"'],
@@ -39,15 +39,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ciclo_new = $_POST['ciclo_nuevo']    ?? '';
         $mat_new   = $_POST['materia_nuevo']  ?? '';
 
-        if (!$nombre || !$apellido || !$email || !$password)
+        if (!$nombre || !$apellido || !$email || !$password) {
             $errores[] = 'Nombre, apellido, correo y contraseña son obligatorios.';
-        elseif (!filter_var($email, FILTER_VALIDATE_EMAIL))
+        } elseif (preg_match('/[0-9]/', $nombre) || preg_match('/[0-9]/', $apellido)) {
+            $errores[] = 'El nombre y apellido no pueden contener números.';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $errores[] = 'El correo electrónico no es válido.';
-        elseif (strlen($password) < 6)
+        } elseif (strlen($password) < 6) {
             $errores[] = 'La contraseña debe tener al menos 6 caracteres.';
-        elseif ($password !== $password2)
+        } elseif ($password !== $password2) {
             $errores[] = 'Las contraseñas no coinciden.';
-        else {
+        } else {
             $stmt = $conexion->prepare("SELECT id_usuario FROM usuario WHERE email = ?");
             $stmt->execute([$email]);
             if ($stmt->fetch()) {
@@ -99,21 +101,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errores[] = 'Ciclo o materia no válidos.';
         }
     }
-
-    // --- Desactivar docente ---
-    if ($action === 'eliminar_docente') {
-        $id_doc = (int)($_POST['id_docente'] ?? 0);
-        if ($id_doc) {
-            $conexion->prepare("UPDATE usuario SET activo=0 WHERE id_usuario=? AND rol='docente'")->execute([$id_doc]);
-            $exito = 'Docente desactivado.';
-        }
-    }
 }
 
 // -------------------------------------------------------
-// CARGAR DATOS
+// CARGAR DATOS Y ORDENAR
 // -------------------------------------------------------
-$docentes = $conexion->query("
+$docentes_raw = $conexion->query("
     SELECT u.id_usuario, u.nombre, u.apellido, u.email, u.activo,
            MIN(a.id_grado) AS un_grado,
            a.id_materia, m.nombre_materia,
@@ -123,10 +116,32 @@ $docentes = $conexion->query("
     LEFT JOIN materia m ON a.id_materia=m.id_materia
     WHERE u.rol='docente'
     GROUP BY u.id_usuario,u.nombre,u.apellido,u.email,u.activo,a.id_materia,m.nombre_materia
-    ORDER BY u.activo DESC,u.apellido,u.nombre
 ")->fetchAll();
 
 $materias = $conexion->query("SELECT id_materia,nombre_materia FROM materia ORDER BY nombre_materia")->fetchAll();
+
+// Asignar el ciclo y ordenar en PHP
+$docentes = [];
+foreach ($docentes_raw as $doc) {
+    $doc['ciclo_actual'] = $doc['un_grado'] ? getCicloDeGrado($doc['un_grado'], $ciclos) : 'Sin asignar';
+    
+    // Pesos para el orden (1 es el más alto)
+    $orden_ciclo = [
+        'Primer Ciclo'  => 1,
+        'Segundo Ciclo' => 2,
+        'Tercer Ciclo'  => 3,
+        'Sin asignar'   => 4
+    ];
+    $doc['peso_ciclo'] = $orden_ciclo[$doc['ciclo_actual']] ?? 5;
+    $docentes[] = $doc;
+}
+
+// Ordenamos: Primero los activos, luego por el peso del ciclo, y alfabéticamente por apellido
+usort($docentes, function($a, $b) {
+    if ($a['activo'] != $b['activo']) return $b['activo'] <=> $a['activo'];
+    if ($a['peso_ciclo'] != $b['peso_ciclo']) return $a['peso_ciclo'] <=> $b['peso_ciclo'];
+    return strcmp($a['apellido'], $b['apellido']);
+});
 
 // Cobertura por ciclo
 $cobertura = [];
@@ -167,12 +182,21 @@ foreach ($ciclos as $nc => $gc) {
 <div class="container mt-5">
 
     <div class="row mb-4 align-items-center">
-        <div class="col">
+        <div class="col-md-5">
             <h2 class="fw-bold mb-0">Gestión de Docentes</h2>
-            <p class="text-muted mb-0">18 docentes — 6 por ciclo, 1 por materia</p>
+            <p class="text-muted mb-0">Listado general ordenado por ciclos</p>
         </div>
-        <div class="col-auto">
-            <button class="btn btn-principal" data-bs-toggle="modal" data-bs-target="#modalNuevo">
+        <div class="col-md-3">
+            <select id="filtroCicloDocente" class="form-select shadow-sm" onchange="filtrarDocentes()">
+                <option value="">Mostrar Todos los Ciclos</option>
+                <option value="Primer Ciclo">Primer Ciclo (1° - 3°)</option>
+                <option value="Segundo Ciclo">Segundo Ciclo (4° - 6°)</option>
+                <option value="Tercer Ciclo">Tercer Ciclo (7° - 9°)</option>
+                <option value="Sin asignar">Sin asignar</option>
+            </select>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-principal shadow-sm" data-bs-toggle="modal" data-bs-target="#modalNuevo">
                 <i class="bi bi-person-plus-fill me-1"></i> Registrar Nuevo Docente
             </button>
         </div>
@@ -192,7 +216,6 @@ foreach ($ciclos as $nc => $gc) {
     </div>
     <?php endif; ?>
 
-    <!-- Tarjetas de cobertura por ciclo -->
     <div class="row g-3 mb-4">
     <?php foreach ($ciclos as $nc => $gc):
         $cub = $cobertura[$nc] ?? [];
@@ -227,7 +250,6 @@ foreach ($ciclos as $nc => $gc) {
     <?php endforeach; ?>
     </div>
 
-    <!-- Tabla de docentes -->
     <div class="tabla-nomina shadow-sm">
         <div class="table-responsive">
             <table class="table table-hover align-middle text-center mb-0">
@@ -235,33 +257,29 @@ foreach ($ciclos as $nc => $gc) {
                     <tr>
                         <th class="ps-4 text-start">Docente</th>
                         <th>Correo</th>
-                        <th>Ciclo</th>
+                        <th>Ciclo Asignado</th>
                         <th>Materia</th>
-                        <th>Grados</th>
                         <th>Estado</th>
                         <th>Editar</th>
                     </tr>
                 </thead>
                 <tbody>
-                <?php foreach ($docentes as $doc):
-                    $ciclo_actual = $doc['un_grado'] ? getCicloDeGrado($doc['un_grado'],$ciclos) : null;
-                ?>
-                <tr class="<?= !$doc['activo'] ? 'row-inactivo' : '' ?>">
+                <?php foreach ($docentes as $doc): ?>
+                <tr class="fila-docente <?= !$doc['activo'] ? 'row-inactivo' : '' ?>" data-ciclo="<?= htmlspecialchars($doc['ciclo_actual']) ?>">
                     <td class="ps-4 text-start fw-bold">
-                        <?= htmlspecialchars($doc['nombre'].' '.$doc['apellido']) ?>
+                        <?= htmlspecialchars($doc['apellido'].', '.$doc['nombre']) ?>
                     </td>
                     <td><small class="text-muted"><?= htmlspecialchars($doc['email']) ?></small></td>
                     <td>
-                        <?php if ($ciclo_actual): ?>
+                        <?php if ($doc['ciclo_actual'] !== 'Sin asignar'): ?>
                             <span class="badge" style="background:var(--color-azul-claro);color:#fff">
-                                <?= $ciclo_actual ?>
+                                <?= $doc['ciclo_actual'] ?>
                             </span>
                         <?php else: ?>
                             <span class="text-muted small">Sin asignar</span>
                         <?php endif; ?>
                     </td>
                     <td><?= $doc['nombre_materia'] ? htmlspecialchars($doc['nombre_materia']) : '<span class="text-muted">—</span>' ?></td>
-                    <td><small class="text-muted"><?= $doc['total_grados'] ?? 0 ?> grados</small></td>
                     <td>
                         <span class="badge <?= $doc['activo'] ? 'bg-success' : 'bg-secondary' ?>">
                             <?= $doc['activo'] ? 'Activo' : 'Inactivo' ?>
@@ -276,7 +294,6 @@ foreach ($ciclos as $nc => $gc) {
                     </td>
                 </tr>
 
-                <!-- Modal editar -->
                 <div class="modal fade" id="modalEdit<?= $doc['id_usuario'] ?>" tabindex="-1" aria-hidden="true">
                     <div class="modal-dialog">
                         <div class="modal-content">
@@ -289,14 +306,14 @@ foreach ($ciclos as $nc => $gc) {
                             <form method="POST">
                                 <input type="hidden" name="action"     value="editar_asignacion">
                                 <input type="hidden" name="id_docente" value="<?= $doc['id_usuario'] ?>">
-                                <div class="modal-body">
+                                <div class="modal-body text-start">
                                     <div class="mb-3">
                                         <label class="form-label fw-bold">Ciclo</label>
                                         <select class="form-select" name="ciclo">
                                             <option value="">— Solo cambiar estado —</option>
                                             <?php foreach ($ciclos as $nc => $gc): ?>
                                             <option value="<?= htmlspecialchars($nc) ?>"
-                                                <?= ($ciclo_actual===$nc) ? 'selected' : '' ?>>
+                                                <?= ($doc['ciclo_actual']===$nc) ? 'selected' : '' ?>>
                                                 <?= $nc ?>
                                             </option>
                                             <?php endforeach; ?>
@@ -314,15 +331,15 @@ foreach ($ciclos as $nc => $gc) {
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" name="activo"
+                                    <div class="form-check form-switch mt-4">
+                                        <input class="form-check-input" type="checkbox" name="activo" id="checkActivo<?= $doc['id_usuario'] ?>"
                                                <?= $doc['activo'] ? 'checked' : '' ?>>
-                                        <label class="form-check-label">Docente activo</label>
+                                        <label class="form-check-label fw-bold text-success" for="checkActivo<?= $doc['id_usuario'] ?>">Docente activo en el sistema</label>
                                     </div>
                                 </div>
                                 <div class="modal-footer">
                                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                    <button type="submit" class="btn btn-primary">Guardar</button>
+                                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
                                 </div>
                             </form>
                         </div>
@@ -335,12 +352,11 @@ foreach ($ciclos as $nc => $gc) {
         </div>
     </div>
     <div class="mt-2 text-end">
-        <small class="text-muted">Total: <strong><?= count($docentes) ?></strong> docentes</small>
+        <small class="text-muted">Total visible: <strong id="totalDocentes"><?= count($docentes) ?></strong> docentes</small>
     </div>
 
 </div>
 
-<!-- Modal nuevo docente -->
 <div class="modal fade" id="modalNuevo" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -356,11 +372,11 @@ foreach ($ciclos as $nc => $gc) {
                     <div class="row g-3 mb-4">
                         <div class="col-6">
                             <label class="form-label fw-bold">Nombre <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="nombre" placeholder="Ej: María" required>
+                            <input type="text" class="form-control" name="nombre" placeholder="Ej: María" pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+" title="Solo se permiten letras" required>
                         </div>
                         <div class="col-6">
                             <label class="form-label fw-bold">Apellido <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="apellido" placeholder="Ej: González" required>
+                            <input type="text" class="form-control" name="apellido" placeholder="Ej: González" pattern="[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+" title="Solo se permiten letras" required>
                         </div>
                         <div class="col-12">
                             <label class="form-label fw-bold">Correo <span class="text-danger">*</span></label>
@@ -427,12 +443,34 @@ foreach ($ciclos as $nc => $gc) {
 </footer>
 
 <script>
+// Toggle Password
 function togglePwd(inputId, iconId) {
     const input = document.getElementById(inputId);
     const icon  = document.getElementById(iconId);
     input.type = input.type === 'password' ? 'text' : 'password';
     icon.className = input.type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
 }
+
+// Filtrar Docentes por Ciclo
+function filtrarDocentes() {
+    const filtro = document.getElementById('filtroCicloDocente').value;
+    const filas = document.querySelectorAll('.fila-docente');
+    let visibles = 0;
+
+    filas.forEach(fila => {
+        const cicloFila = fila.getAttribute('data-ciclo');
+        
+        if (filtro === "" || cicloFila === filtro) {
+            fila.style.display = "";
+            visibles++;
+        } else {
+            fila.style.display = "none";
+        }
+    });
+
+    document.getElementById('totalDocentes').textContent = visibles;
+}
+
 <?php if (!empty($errores) && ($_POST['action']??'')==='crear_docente'): ?>
 document.addEventListener('DOMContentLoaded',()=>new bootstrap.Modal(document.getElementById('modalNuevo')).show());
 <?php endif; ?>
